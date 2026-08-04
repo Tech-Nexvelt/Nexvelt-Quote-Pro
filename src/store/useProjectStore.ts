@@ -104,7 +104,9 @@ interface ProjectState {
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => {
-  const initialProject = LocalStorageAdapter.getItem<ProjectAggregate>(ACTIVE_PROJECT_KEY, createDefaultProject());
+  // Always start with a fresh project — customer details must never be pre-filled from a previous session.
+  // This prevents stale customer data appearing on new quotations.
+  const initialProject = createDefaultProject();
 
   // Dynamic Calculation Engine Pipeline Execution
   const recalculateProject = (p: ProjectAggregate): ProjectAggregate => {
@@ -357,7 +359,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     resetProject: () => {
       const fresh = createDefaultProject();
-      LocalStorageAdapter.setItem(ACTIVE_PROJECT_KEY, fresh);
+      // Wipe persisted project so stale customer details never reappear on the next mount
+      try {
+        LocalStorageAdapter.removeItem?.(ACTIVE_PROJECT_KEY);
+        localStorage.removeItem(ACTIVE_PROJECT_KEY);
+      } catch (_) {}
       set({
         project: fresh,
         selectedRoomId: fresh.rooms[0]?.id || null,

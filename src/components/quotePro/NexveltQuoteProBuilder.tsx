@@ -190,8 +190,15 @@ const loadSavedBuilderDraft = () => {
 
 export const NexveltQuoteProBuilder: React.FC = () => {
   const { setPrintPreviewOpen, addToast } = useUIStore();
-  const { project, updateCustomerDetails, updateProjectDetails } = useProjectStore();
+  const { project, updateCustomerDetails, updateProjectDetails, resetProject } = useProjectStore();
   const { company } = useCompanyStore();
+
+  // Always clear customer fields on fresh mount so old customer never leaks into a new quotation
+  React.useEffect(() => {
+    updateCustomerDetails({ name: '', phone: '', email: '', city: '', projectLocation: '' });
+    updateProjectDetails({ projectLocation: '', title: '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const initialDraft = useMemo(() => loadSavedBuilderDraft(), []);
 
@@ -545,56 +552,105 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   1
                 </div>
                 <h2 className="text-sm font-extrabold text-[#111827]">Customer Details</h2>
+                <span className="text-[10px] font-semibold text-[#6B7280] bg-[#F1F5F9] px-2 py-0.5 rounded-full">All fields required</span>
               </div>
-              <button className="text-xs font-bold text-[#00B8B8] hover:underline flex items-center gap-1">
-                <span>+ Add More</span>
+              <button
+                onClick={() => {
+                  updateCustomerDetails({ name: '', phone: '', email: '', city: '', projectLocation: '' });
+                  updateProjectDetails({ projectLocation: '', title: '' });
+                  addToast({ type: 'info', title: 'Customer Cleared', message: 'Customer details have been reset.' });
+                }}
+                className="text-xs font-bold text-red-500 hover:text-red-700 hover:underline flex items-center gap-1 transition-colors"
+                title="Clear all customer fields"
+              >
+                <span>✕ Clear</span>
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Customer Name */}
               <div>
-                <label htmlFor="nqp-customer-name" className="text-xs font-semibold text-[#4B5563] block mb-1">Customer Name *</label>
+                <label htmlFor="nqp-customer-name" className="text-xs font-semibold text-[#4B5563] block mb-1">
+                  Customer Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   id="nqp-customer-name"
                   name="customerName"
                   type="text"
-                  placeholder="e.g. Client Name"
+                  required
+                  placeholder="e.g. Rajesh Kumar"
                   value={project.customer.name || ''}
                   onChange={(e) => updateCustomerDetails({ name: e.target.value })}
-                  className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] focus:outline-none focus:border-[#00D9D9] font-medium"
+                  className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
+                    !project.customer.name?.trim()
+                      ? 'border-red-300 focus:border-red-500 bg-red-50/30'
+                      : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                  }`}
                 />
+                {!project.customer.name?.trim() && (
+                  <p className="text-[10px] text-red-500 font-semibold mt-0.5">Required</p>
+                )}
               </div>
+
+              {/* Phone */}
               <div>
-                <label htmlFor="nqp-customer-phone" className="text-xs font-semibold text-[#4B5563] block mb-1">Phone</label>
+                <label htmlFor="nqp-customer-phone" className="text-xs font-semibold text-[#4B5563] block mb-1">
+                  Phone <span className="text-red-500">*</span>
+                </label>
                 <input
                   id="nqp-customer-phone"
                   name="customerPhone"
-                  type="text"
+                  type="tel"
+                  required
                   placeholder="e.g. +91 98765 43210"
                   value={project.customer.phone || ''}
                   onChange={(e) => updateCustomerDetails({ phone: e.target.value })}
-                  className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] focus:outline-none focus:border-[#00D9D9] font-medium"
+                  className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
+                    !project.customer.phone?.trim()
+                      ? 'border-red-300 focus:border-red-500 bg-red-50/30'
+                      : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                  }`}
                 />
+                {!project.customer.phone?.trim() && (
+                  <p className="text-[10px] text-red-500 font-semibold mt-0.5">Required</p>
+                )}
               </div>
+
+              {/* Email */}
               <div>
-                <label htmlFor="nqp-customer-email" className="text-xs font-semibold text-[#4B5563] block mb-1">Email</label>
+                <label htmlFor="nqp-customer-email" className="text-xs font-semibold text-[#4B5563] block mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
                 <input
                   id="nqp-customer-email"
                   name="customerEmail"
-                  type="text"
+                  type="email"
+                  required
                   placeholder="client@example.com"
                   value={project.customer.email || ''}
                   onChange={(e) => updateCustomerDetails({ email: e.target.value })}
-                  className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] focus:outline-none focus:border-[#00D9D9] font-medium"
+                  className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
+                    !project.customer.email?.trim()
+                      ? 'border-red-300 focus:border-red-500 bg-red-50/30'
+                      : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                  }`}
                 />
+                {!project.customer.email?.trim() && (
+                  <p className="text-[10px] text-red-500 font-semibold mt-0.5">Required</p>
+                )}
               </div>
+
+              {/* Site / Project Location */}
               <div>
-                <label htmlFor="nqp-customer-site" className="text-xs font-semibold text-[#4B5563] block mb-1">Site / Project</label>
+                <label htmlFor="nqp-customer-site" className="text-xs font-semibold text-[#4B5563] block mb-1">
+                  Site / Project <span className="text-red-500">*</span>
+                </label>
                 <input
                   id="nqp-customer-site"
                   name="projectLocation"
                   type="text"
-                  placeholder="e.g. Site Location"
+                  required
+                  placeholder="e.g. Flat 4B, Siddipet"
                   value={project.projectLocation ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
