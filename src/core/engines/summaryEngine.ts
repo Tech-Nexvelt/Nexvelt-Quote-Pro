@@ -21,6 +21,7 @@ export interface SummaryEngineInput {
   tax?: any;
   discountPercent?: number;
   discountFlat?: number;
+  discountType?: string;
   gstRatePercent?: number;
 }
 

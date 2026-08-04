@@ -36,6 +36,8 @@ export const GuidedProductBuilder: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
 
   // Form States
+  const spaces = currentQuotation.spaces || [];
+  const [spaceId, setSpaceId] = useState<string>(spaces[0]?.id || 'space_general');
   const [category, setCategory] = useState<string>('Wardrobe');
   const [name, setName] = useState<string>('Master Bedroom Wardrobe');
   const [unit, setUnit] = useState<UnitSystem>('ft-in');
@@ -61,6 +63,7 @@ export const GuidedProductBuilder: React.FC = () => {
   // Fill editing item values if editing mode is active
   useEffect(() => {
     if (editingItem) {
+      if (editingItem.spaceId) setSpaceId(editingItem.spaceId);
       setCategory(editingItem.category);
       setName(editingItem.name);
       setUnit(editingItem.dimensions.unit || 'ft-in');
@@ -131,7 +134,11 @@ export const GuidedProductBuilder: React.FC = () => {
       return;
     }
 
+    const currentSpaceObj = spaces.find((s) => s.id === spaceId);
+
     const payload = {
+      spaceId: spaceId || 'space_general',
+      spaceName: currentSpaceObj?.spaceName || 'General',
       category,
       name,
       dimensions: { unit, feet: heightFeet, inches: heightInches, decimalFeet: computedDimensions.heightFt, depthInches },

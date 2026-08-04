@@ -150,7 +150,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       threshold: 0.2,
     });
 
-    const steps = [1, 2, 3, 4];
+    const steps = [1, 2, 3];
     steps.forEach((step) => {
       const el = document.getElementById(`quotation-step-${step}`);
       if (el) observer.observe(el);
@@ -260,7 +260,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           onClick={() => { navigate('/dashboard'); onNavClick?.(); }}
           className="flex items-center gap-2.5 px-1 cursor-pointer"
         >
-          <img src="/nexvelt_logo.png" alt="Nexvelt Logo" className="w-9 h-9 object-contain drop-shadow-sm shrink-0" />
+          <img
+            src="/vlr_traders_logo.jpg"
+            alt="VLR Logo"
+            className="w-9 h-9 object-contain drop-shadow-sm shrink-0 rounded-full border border-[#00D9D9]/30"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/nexvelt_logo.png'; }}
+          />
           {(!isCollapsed || onNavClick) && (
             <div>
               <span className="font-extrabold text-sm tracking-tight text-[#111827] block leading-none">Nexvelt</span>
@@ -484,12 +489,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <div className="flex items-center gap-2 sm:gap-3">
               {/* Company Badge — hidden on xs */}
               <div className="hidden sm:flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-left shadow-2xs">
-                <div className="w-7 h-7 rounded-lg bg-[#E6F7F7] border border-[#00D9D9]/30 flex items-center justify-center text-[#008080] shrink-0">
-                  <Building2 className="w-4 h-4 text-[#00B8B8]" />
-                </div>
+                <img
+                  src="/vlr_traders_logo.jpg"
+                  alt="VLR Logo"
+                  className="w-7 h-7 object-contain rounded-full border border-[#00D9D9]/30 shrink-0"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/nexvelt_logo.png'; }}
+                />
                 <div className="leading-tight hidden md:block">
-                  <span className="text-xs font-extrabold text-[#111827] block">{company.name || 'Nexvelt Demo'}</span>
-                  <span className="text-[10px] text-[#4B5563] font-semibold block">{company.city || 'Main Workshop'}</span>
+                  <span className="text-xs font-extrabold text-[#111827] block">{company.name || 'VLR Interior Solutions'}</span>
+                  <span className="text-[10px] text-[#4B5563] font-semibold block">{company.city || 'Siddipet Telangana 502103'}</span>
                 </div>
               </div>
 
@@ -519,9 +527,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <div className="flex items-center justify-start gap-4 sm:gap-6 mt-3 pt-3 border-t border-[#F1F5F9] text-xs font-bold overflow-x-auto pb-0.5">
               {[
                 { step: 1, label: 'Customer' },
-                { step: 2, label: 'Scope' },
-                { step: 3, label: 'Items' },
-                { step: 4, label: 'Summary' },
+                { step: 2, label: 'Items' },
+                { step: 3, label: 'Summary' },
               ].map((s, i) => {
                 const isCurrent = activeStep === s.step;
                 return (
@@ -544,7 +551,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                       {s.step}
                     </div>
                     <span className={isCurrent ? 'text-[#111827] font-extrabold' : 'text-[#6B7280]'}>{s.label}</span>
-                    {i < 3 && <div className="w-6 sm:w-8 h-px bg-[#E2E8F0] ml-1 sm:ml-2 hidden sm:block" />}
+                    {i < 2 && <div className="w-6 sm:w-8 h-px bg-[#E2E8F0] ml-1 sm:ml-2 hidden sm:block" />}
                   </div>
                 );
               })}

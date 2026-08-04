@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useUIStore } from '@/store/useUIStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useCompanyStore } from '@/store/useCompanyStore';
@@ -22,7 +22,14 @@ import { TemplateLibraryModal } from './TemplateLibraryModal';
 import { RevisionManagerModal } from './RevisionManagerModal';
 import { WorkshopDashboard } from './WorkshopDashboard';
 import { PurchaseListExportModal } from './PurchaseListExportModal';
-import { Select } from '@/components/ui/Select';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_ITEM_TYPES,
+  CUSTOM_CATEGORY_EXAMPLES,
+  CUSTOM_ITEM_TYPE_EXAMPLES,
+  CategoryOption,
+  ItemTypeOption,
+} from '@/constants/quotationMasterData';
 import {
   Search,
   Plus,
@@ -38,11 +45,32 @@ import {
   Check,
   AlertCircle,
   HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Folder,
+  Layers,
+  Box,
+  Utensils,
+  Bed,
+  Tv,
+  Coffee,
+  Briefcase,
+  Bath,
+  Wrench,
+  Sun,
+  PlusCircle,
+  GripVertical,
+  Maximize2,
 } from 'lucide-react';
 
 export interface CommercialItem {
   id: string;
   category: string;
+  itemType: string;
+  customCategoryName?: string;
+  customItemTypeName?: string;
+  categoryOrder?: number;
+  itemOrder?: number;
   image: string;
   title: string;
   subtitle: string;
@@ -55,108 +83,25 @@ export interface CommercialItem {
   material: string;
   finish: string;
   qty: number;
-  rate: number; // Editable rate per sq.ft
+  rate: number;
   amount: number;
   pricingMethod?: PricingMethod;
 }
 
-export interface ScopeOfWorkItem {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
-  description: string;
-}
-
-export const SCOPE_OF_WORK_OPTIONS: ScopeOfWorkItem[] = [
-  {
-    id: 'box-work',
-    name: 'Box Work',
-    icon: (
-      <svg className="w-5 h-5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-      </svg>
-    ),
-    description: 'Cabinet boxes, carcass, wardrobes, kitchen boxes.',
-  },
-  {
-    id: 'frame-work',
-    name: 'Frame Work',
-    icon: (
-      <svg className="w-5 h-5 text-orange-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-        <line x1="3" y1="9" x2="21" y2="9"></line>
-        <line x1="3" y1="15" x2="21" y2="15"></line>
-        <line x1="9" y1="3" x2="9" y2="21"></line>
-        <line x1="15" y1="3" x2="15" y2="21"></line>
-      </svg>
-    ),
-    description: 'Shelves, internal partitions, framework.',
-  },
-  {
-    id: 'shutters',
-    name: 'Shutters',
-    icon: (
-      <svg className="w-5 h-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 21h18"></path>
-        <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16"></path>
-        <path d="M9 12h.01"></path>
-      </svg>
-    ),
-    description: 'Doors, sliding shutters, acrylic, laminate, veneer.',
-  },
-  {
-    id: 'wall-panelling',
-    name: 'Wall Panelling',
-    icon: (
-      <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect>
-        <line x1="2" y1="9" x2="22" y2="9"></line>
-        <line x1="2" y1="15" x2="22" y2="15"></line>
-        <line x1="12" y1="3" x2="12" y2="9"></line>
-        <line x1="7" y1="9" x2="7" y2="15"></line>
-        <line x1="17" y1="9" x2="17" y2="15"></line>
-        <line x1="12" y1="15" x2="12" y2="21"></line>
-      </svg>
-    ),
-    description: 'Bedroom panels, TV wall, living room panelling.',
-  },
-  {
-    id: 'countertops',
-    name: 'Countertops',
-    icon: (
-      <svg className="w-5 h-5 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-        <polyline points="2 17 12 22 22 17"></polyline>
-        <polyline points="2 12 12 17 22 12"></polyline>
-      </svg>
-    ),
-    description: 'Kitchen counters, office counters, worktops.',
-  },
-  {
-    id: 'other-items',
-    name: 'Other Items',
-    icon: (
-      <svg className="w-5 h-5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        <line x1="12" y1="11" x2="12" y2="17"></line>
-        <line x1="9" y1="14" x2="15" y2="14"></line>
-      </svg>
-    ),
-    description: 'Hardware, accessories, labour, blinds, custom fittings & consumables.',
-  },
-];
-
-// Helper to strip leading zeros and convert string to clean numeric value
-const parseCleanNumber = (val: string): number => {
-  const clean = val.replace(/^0+(?=\d)/, '');
-  if (clean === '') return 0;
-  const parsed = parseFloat(clean);
-  return isNaN(parsed) ? 0 : parsed;
-};
-
 export const BUILDER_DRAFT_STORAGE_KEY = 'nqp_active_quotation_builder_draft_v1';
+
+const getCategoryIcon = (categoryName?: string) => {
+  const cat = (categoryName || '').toLowerCase();
+  if (cat.includes('kitchen')) return <Utensils className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('bedroom')) return <Bed className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('hall') || cat.includes('living')) return <Tv className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('dining')) return <Coffee className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('office')) return <Briefcase className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('bath')) return <Bath className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('utility')) return <Wrench className="w-4 h-4 text-[#008080]" />;
+  if (cat.includes('exterior') || cat.includes('balcony')) return <Sun className="w-4 h-4 text-[#008080]" />;
+  return <Folder className="w-4 h-4 text-[#008080]" />;
+};
 
 const loadSavedBuilderDraft = () => {
   try {
@@ -164,13 +109,17 @@ const loadSavedBuilderDraft = () => {
     if (raw) {
       const data = JSON.parse(raw);
       if (data && typeof data === 'object') {
+        const sanitizedItems = (Array.isArray(data.items) ? data.items : []).map((i: any) => ({
+          ...i,
+          category: i.category || 'Kitchen',
+          itemType: i.itemType || i.category || 'Box Work',
+        }));
         return {
-          selectedScopes: Array.isArray(data.selectedScopes) && data.selectedScopes.length > 0 ? data.selectedScopes : ['box-work'],
-          activeCategory: data.activeCategory || 'Box Work',
           discountPercent: typeof data.discountPercent === 'number' ? data.discountPercent : 0,
           discountType: data.discountType === 'flat' ? ('flat' as const) : ('%' as const),
           paymentTerms: data.paymentTerms || '50% Advance, 50% After Completion',
-          items: Array.isArray(data.items) ? data.items : [],
+          termsAndConditions: data.termsAndConditions || '1. 50% Advance on order confirmation.\n2. Balance 50% before dispatch.\n3. Work completion subject to site readiness.',
+          items: sanitizedItems,
         };
       }
     }
@@ -178,8 +127,6 @@ const loadSavedBuilderDraft = () => {
     console.error('Failed to parse cached quotation draft:', err);
   }
   return {
-    selectedScopes: ['box-work'],
-    activeCategory: 'Box Work',
     discountPercent: 0,
     discountType: '%' as const,
     paymentTerms: '50% Advance, 50% After Completion',
@@ -190,69 +137,53 @@ const loadSavedBuilderDraft = () => {
 
 export const NexveltQuoteProBuilder: React.FC = () => {
   const { setPrintPreviewOpen, addToast } = useUIStore();
-  const { project, updateCustomerDetails, updateProjectDetails, resetProject } = useProjectStore();
+  const { project, updateCustomerDetails, updateProjectDetails } = useProjectStore();
   const { company } = useCompanyStore();
+  const { setQuotationItems, updateTermsAndConditions, updateCustomerDetails: updateQuoteCustomer } = useQuotationStore();
 
-  // Always clear customer fields on fresh mount so old customer never leaks into a new quotation
-  React.useEffect(() => {
-    updateCustomerDetails({ name: '', phone: '', email: '', city: '', projectLocation: '' });
-    updateProjectDetails({ projectLocation: '', title: '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleCustomerChange = (field: string, val: string) => {
+    updateCustomerDetails({ [field]: val });
+    updateQuoteCustomer({ [field]: val });
+  };
 
   const initialDraft = useMemo(() => loadSavedBuilderDraft(), []);
 
-  // Step 2: Scope of Work Multi-Select State
-  const [selectedScopes, setSelectedScopes] = useState<string[]>(initialDraft.selectedScopes);
-
-  const [activeCategory, setActiveCategory] = useState<string>(initialDraft.activeCategory);
   const [discountPercent, setDiscountPercent] = useState<number>(initialDraft.discountPercent);
   const [discountType, setDiscountType] = useState<'%' | 'flat'>(initialDraft.discountType);
   const [paymentTerms, setPaymentTerms] = useState<string>(initialDraft.paymentTerms);
-  const [termsAndConditions, setTermsAndConditions] = useState<string>(
-    initialDraft.termsAndConditions ||
-      '1. 50% Advance on order confirmation.\n2. Balance 50% before dispatch.\n3. Work completion subject to site readiness.'
-  );
-  
+  const [termsAndConditions, setTermsAndConditions] = useState<string>(initialDraft.termsAndConditions);
+
+  // Commercial Items State
+  const [items, setItems] = useState<CommercialItem[]>(initialDraft.items);
+
+  // Collapsed Categories State (Map of categoryName -> boolean)
+  const [collapsedCategories, setCollapsedCategories] = useState<{ [category: string]: boolean }>({});
+
   // Modals State
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [showRevisionsModal, setShowRevisionsModal] = useState(false);
   const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [showAddScopeModal, setShowAddScopeModal] = useState(false);
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
-  // Helper to identify non-dimensional categories (Other Items, Hardware, Accessories, Labour)
-  const isNonDimensionalCategory = (category: string) => {
-    const cat = category.toLowerCase();
-    return cat === 'other items' || cat === 'hardware' || cat === 'accessories' || cat === 'labour';
-  };
+  // ENTERPRISE V3 ADD ITEM WORKFLOW MODAL STATE
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [addItemStep, setAddItemStep] = useState<1 | 2>(1);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Kitchen');
+  const [customCategoryName, setCustomCategoryName] = useState<string>('');
+  const [selectedItemType, setSelectedItemType] = useState<string>('Box Work');
+  const [customItemTypeName, setCustomItemTypeName] = useState<string>('');
 
-  // New Item Dimension State Prompt
-  const [modalWizardStep, setModalWizardStep] = useState<1 | 2>(1);
-  const [targetScope, setTargetScope] = useState<string>('Box Work');
-  const [newTitle, setNewTitle] = useState<string>('');
-  const [newSubtitle, setNewSubtitle] = useState<string>('');
-  const [newWidth, setNewWidth] = useState<number>(1500);
-  const [newHeight, setNewHeight] = useState<number>(2000);
-  const [newDepth, setNewDepth] = useState<number>(500);
-  const [newUnit, setNewUnit] = useState<MeasurementUnit>('mm');
-  const [newRate, setNewRate] = useState<number>(1000);
-  const [newQty, setNewQty] = useState<number>(1);
+  // Target ref for auto-focusing new item input
+  const newItemInputRef = useRef<HTMLInputElement | null>(null);
+  const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
 
-  const { setQuotationItems, updateTermsAndConditions } = useQuotationStore();
-
-  // Dynamic Commercial Items
-  const [items, setItems] = useState<CommercialItem[]>(initialDraft.items);
-
-  // Auto-save active builder draft to session and local storage and sync with store
-  React.useEffect(() => {
+  // Auto-save active builder draft to session and local storage
+  useEffect(() => {
     try {
       setQuotationItems(items);
       updateTermsAndConditions(termsAndConditions);
       const payload = {
-        selectedScopes,
-        activeCategory,
         discountPercent,
         discountType,
         paymentTerms,
@@ -266,27 +197,12 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     } catch (err) {
       console.error('Failed to save quotation draft to storage:', err);
     }
-  }, [selectedScopes, activeCategory, discountPercent, discountType, paymentTerms, termsAndConditions, items, setQuotationItems, updateTermsAndConditions]);
+  }, [discountPercent, discountType, paymentTerms, termsAndConditions, items, setQuotationItems, updateTermsAndConditions]);
 
-  // Prevent accidental loss of unsaved draft items on tab reload or navigation
-  React.useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (items.length > 0) {
-        e.preventDefault();
-        e.returnValue = 'You have an active quotation draft with items. Are you sure you want to reload or leave?';
-        return e.returnValue;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [items]);
-
-  // Handle external reset event from AppLayout
-  React.useEffect(() => {
+  // Handle external clear event
+  useEffect(() => {
     const handleClearEvent = () => {
       setItems([]);
-      setSelectedScopes(['box-work']);
-      setActiveCategory('Box Work');
       setDiscountPercent(0);
       setDiscountType('%');
     };
@@ -294,50 +210,20 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     return () => window.removeEventListener('nqp_clear_builder_draft', handleClearEvent);
   }, []);
 
-  const handleClearDraftConfirmed = () => {
-    setItems([]);
-    setSelectedScopes(['box-work']);
-    setActiveCategory('Box Work');
-    setDiscountPercent(0);
-    setDiscountType('%');
-    try {
-      localStorage.removeItem(BUILDER_DRAFT_STORAGE_KEY);
-      sessionStorage.removeItem(BUILDER_DRAFT_STORAGE_KEY);
-    } catch (e) {}
-    addToast({ type: 'info', title: 'Draft Cleared', message: 'Cleared active quotation draft.' });
-    setShowClearConfirmModal(false);
+  // Helper to identify non-dimensional item types
+  const isNonDimensionalType = (itemType?: string) => {
+    const t = (itemType || '').toLowerCase();
+    return t.includes('hardware') || t.includes('accessories') || t.includes('other');
   };
 
-  // Toggle Scope of Work Selection & Auto-Sync Category
-  const toggleScope = (scopeId: string) => {
-    const scopeObj = SCOPE_OF_WORK_OPTIONS.find((s) => s.id === scopeId);
-    setSelectedScopes((prev) => {
-      if (prev.includes(scopeId)) {
-        return prev.filter((id) => id !== scopeId);
-      } else {
-        return [...prev, scopeId];
-      }
-    });
-
-    if (scopeObj) {
-      setActiveCategory(scopeObj.name);
-    }
-  };
-
-  const handleCategorySelect = (categoryName: string) => {
-    setActiveCategory(categoryName);
-    const scopeObj = SCOPE_OF_WORK_OPTIONS.find((s) => s.name === categoryName);
-    if (scopeObj && !selectedScopes.includes(scopeObj.id)) {
-      setSelectedScopes((prev) => [...prev, scopeObj.id]);
-    }
-  };
-
-  // Helper to re-calculate area & amount dynamically
+  // Helper to calculate area & line item amount
   const calculateItemAreaAndAmount = (item: CommercialItem): CommercialItem => {
-    if (isNonDimensionalCategory(item.category)) {
+    const itemTypeSafe = item.itemType || item.category || 'Box Work';
+    if (isNonDimensionalType(itemTypeSafe)) {
       const amount = (item.rate || 0) * (item.qty || 1);
       return {
         ...item,
+        itemType: itemTypeSafe,
         areaSqFt: 0,
         amount,
         pricingMethod: 'per_unit',
@@ -348,20 +234,29 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     const wFt = convertToFeet(item.width, item.unit);
     const hFt = convertToFeet(item.height, item.unit);
 
-    switch (item.category.toLowerCase()) {
+    switch (itemTypeSafe.toLowerCase()) {
       case 'box work':
+      case 'wardrobe':
+      case 'loft':
+      case 'storage':
         area = calculateBoxWorkArea(item.width, item.height, item.unit);
         break;
       case 'frame work':
+      case 'shelves':
+      case 'partition':
         area = calculateFrameWorkArea(item.width, item.height, item.depth, item.unit).areaSqFt;
         break;
       case 'shutters':
+      case 'door':
+      case 'window':
         area = calculateShutterArea(item.width, item.height, item.unit);
         break;
-      case 'wall panelling':
+      case 'wall panel':
+      case 'tv unit':
+      case 'ceiling':
         area = calculatePanellingArea(item.length || item.width, item.height, item.unit);
         break;
-      case 'countertops':
+      case 'countertop':
         area = calculateCountertopArea(item.length || item.width, item.height || item.depth, item.unit);
         break;
       default:
@@ -387,7 +282,7 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     };
   };
 
-  // Field Updates
+  // Field Updates for an Item
   const handleItemUpdate = (id: string, updates: Partial<CommercialItem>) => {
     setItems((prev) =>
       prev.map((item) => {
@@ -416,134 +311,146 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
-  const handleAddItemForCategory = (
-    targetCategory: string = targetScope,
-    widthVal: number = newWidth,
-    heightVal: number = newHeight,
-    depthVal: number = newDepth,
-    unitVal: MeasurementUnit = newUnit,
-    rateVal: number = newRate,
-    qtyVal: number = newQty,
-    customTitle?: string,
-    customSubtitle?: string
-  ) => {
-    const scopeObj = SCOPE_OF_WORK_OPTIONS.find((s) => s.name === targetCategory);
-    if (scopeObj && !selectedScopes.includes(scopeObj.id)) {
-      setSelectedScopes((prev) => [...prev, scopeObj.id]);
+  const handleDuplicateItem = (itemToCopy: CommercialItem) => {
+    const duplicated: CommercialItem = {
+      ...itemToCopy,
+      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title: `${itemToCopy.title} (Copy)`,
+    };
+    setItems((prev) => [...prev, duplicated]);
+    addToast({ type: 'success', title: 'Item Duplicated', message: `Created copy of ${itemToCopy.title}` });
+  };
+
+  // Open Add Item Modal (Global or Per Category)
+  const openAddItemModal = (targetCategory?: string) => {
+    if (targetCategory) {
+      setSelectedCategory(targetCategory);
+      setAddItemStep(2); // Jump straight to Step 2 for per-category add
+    } else {
+      setSelectedCategory('Kitchen');
+      setAddItemStep(1); // Start at Step 1 for global add
     }
-    setActiveCategory(targetCategory);
+    setCustomCategoryName('');
+    setSelectedItemType('Box Work');
+    setCustomItemTypeName('');
+    setShowAddItemModal(true);
+  };
 
-    const isNonDim = isNonDimensionalCategory(targetCategory);
-    const defaultRate = rateVal || getDefaultRateForCategory(targetCategory);
+  // EXECUTE CREATION OF NEW ITEM
+  const handleCreateNewItem = (categoryChoice?: string, itemTypeChoice?: string) => {
+    const catFinal = (categoryChoice || (selectedCategory === 'Others' ? customCategoryName.trim() : selectedCategory)) || 'Kitchen';
+    const typeFinal = (itemTypeChoice || (selectedItemType === 'Other Item' ? customItemTypeName.trim() : selectedItemType)) || 'Box Work';
 
-    const itemTitle = customTitle?.trim() || newTitle.trim() || `${targetCategory} Item`;
-    const itemSubtitle = customSubtitle?.trim() || newSubtitle.trim() || (isNonDim ? 'Unit Item Specification' : 'Custom Specification');
+    const newItemId = `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+
+    const defaultRate = getDefaultRateForCategory(typeFinal) || 1200;
+    const isNonDim = isNonDimensionalType(typeFinal);
 
     const rawItem: CommercialItem = {
-      id: `item-${Date.now()}`,
-      category: targetCategory,
-      image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=150&auto=format&fit=crop&q=80',
-      title: itemTitle,
-      subtitle: itemSubtitle,
-      unit: unitVal,
-      width: isNonDim ? 0 : widthVal,
-      height: isNonDim ? 0 : heightVal,
-      depth: isNonDim ? 0 : depthVal,
+      id: newItemId,
+      category: catFinal,
+      itemType: typeFinal,
+      image: '/furniture/wardrobe_4door.png',
+      title: `${catFinal} ${typeFinal}`,
+      subtitle: `${typeFinal} Custom Specification`,
+      unit: 'mm',
+      width: isNonDim ? 0 : 1500,
+      height: isNonDim ? 0 : 2000,
+      depth: isNonDim ? 0 : 500,
+      length: 0,
       areaSqFt: 0,
-      material: isNonDim ? 'Standard Spec' : '18mm HDMR Board',
-      finish: isNonDim ? 'Standard Finish' : '1mm Premium Laminate',
-      qty: qtyVal || 1,
+      material: '18mm HDMR Board',
+      finish: '1mm Premium Laminate',
+      qty: 1,
       rate: defaultRate,
       amount: 0,
       pricingMethod: isNonDim ? 'per_unit' : 'per_sqft',
     };
+
     const calculated = calculateItemAreaAndAmount(rawItem);
-    setItems((prev) => [calculated, ...prev]);
-    addToast({ type: 'success', title: 'Item Added', message: `Added ${itemTitle} to quotation.` });
-    setShowAddScopeModal(false);
-    setNewTitle('');
-    setNewSubtitle('');
-  };
 
-  const handleDuplicateItem = (itemToCopy: CommercialItem) => {
-    const duplicated: CommercialItem = {
-      ...itemToCopy,
-      id: `item-${Date.now()}`,
-      title: `${itemToCopy.title} (Copy)`,
-    };
-    setItems((prev) => [duplicated, ...prev]);
-    addToast({ type: 'success', title: 'Item Duplicated', message: `Duplicated ${itemToCopy.title}.` });
-  };
+    // Uncollapse target category
+    setCollapsedCategories((prev) => ({ ...prev, [catFinal]: false }));
 
-  // Real-Time Commercial Summary Calculation Engine
-  const summaryOutput = useMemo(() => {
-    return calculateCommercialSummary({
-      items: items.map((i) => ({
-        id: i.id,
-        category: i.category,
-        title: i.title,
-        areaSqFt: i.areaSqFt,
-        qty: i.qty,
-        rate: i.rate,
-        amount: i.amount,
-      })),
-      discountPercent: discountType === '%' ? discountPercent : 0,
-      discountFlat: discountType === 'flat' ? discountPercent : 0,
-      gstRatePercent: 0,
-    });
-  }, [items, discountPercent, discountType]);
-
-  const handleShareWhatsApp = () => {
-    const text = `*Nexvelt Quotation*\nGrand Total: ₹${summaryOutput.grandTotal.toLocaleString('en-IN')}\nCustomer: ${project.customer.name || 'Valued Client'}\nThank you!`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const handleSendEmail = () => {
-    const customerEmail = project.customer.email || '';
-    const customerName = project.customer.name || 'Valued Client';
-    const grandTotalFormatted = `₹${summaryOutput.grandTotal.toLocaleString('en-IN')}`;
-    const companyName = company?.name || company?.company_name || 'VLR Interior Solutions';
-
-    if (!customerEmail.trim()) {
-      addToast({
-        type: 'warning',
-        title: 'Missing Customer Email',
-        message: 'Please enter a customer email address in Customer Details before sending email.',
-      });
-      return;
-    }
-
-    const subject = encodeURIComponent(`Quotation Estimate from ${companyName} - ${customerName}`);
-    const body = encodeURIComponent(
-      `Dear ${customerName},\n\n` +
-      `Thank you for contacting ${companyName}.\n\n` +
-      `Here is your quotation estimate details:\n` +
-      `Quotation Number: ${project.quotationNumber}\n` +
-      `Grand Total: ${grandTotalFormatted}\n` +
-      `Project Location: ${project.projectLocation || 'As specified'}\n\n` +
-      `Please let us know if you have any questions or require modifications.\n\n` +
-      `Best regards,\n` +
-      `${companyName}\n` +
-      `${company?.phone || ''}`
-    );
-
-    window.open(`mailto:${customerEmail.trim()}?subject=${subject}&body=${body}`, '_blank');
+    // Append item
+    setItems((prev) => [...prev, calculated]);
+    setRecentlyAddedId(newItemId);
+    setShowAddItemModal(false);
 
     addToast({
       type: 'success',
-      title: 'Email Client Opened',
-      message: `Composed quotation email for ${customerEmail}.`,
+      title: 'Item Added',
+      message: `Added ${typeFinal} under ${catFinal}`,
     });
+
+    // Auto-scroll and focus
+    setTimeout(() => {
+      const el = document.getElementById(`item-card-${newItemId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+
+    setTimeout(() => {
+      if (newItemInputRef.current) {
+        newItemInputRef.current.focus();
+        newItemInputRef.current.select();
+      }
+    }, 250);
+  };
+
+  // Group Items by Category for Canvas Display
+  const groupedCategories = useMemo(() => {
+    const groups: { [cat: string]: CommercialItem[] } = {};
+    items.forEach((item) => {
+      const cat = item.category || 'General';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [items]);
+
+  const activeCategoryList = Object.keys(groupedCategories);
+
+  // Commercial Summary Engine
+  const summary = useMemo(() => {
+    return calculateCommercialSummary({ items, discountPercent, discountType });
+  }, [items, discountPercent, discountType]);
+
+  // Category Duplicate & Delete Actions
+  const handleDuplicateCategory = (categoryName: string) => {
+    const categoryItems = groupedCategories[categoryName] || [];
+    const duplicatedItems = categoryItems.map((item) => ({
+      ...item,
+      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title: `${item.title} (Copy)`,
+    }));
+    setItems((prev) => [...prev, ...duplicatedItems]);
+    addToast({ type: 'success', title: 'Category Duplicated', message: `Duplicated ${categoryName} category (${categoryItems.length} items)` });
+  };
+
+  const handleDeleteCategory = (categoryName: string) => {
+    setItems((prev) => prev.filter((item) => item.category !== categoryName));
+    addToast({ type: 'info', title: 'Category Deleted', message: `Removed ${categoryName} and its items.` });
+  };
+
+  const toggleCategoryCollapse = (categoryName: string) => {
+    setCollapsedCategories((prev) => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }));
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* 2-Column Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
         {/* ========================================================= */}
-        {/* LEFT COLUMN (70% Width) */}
+        {/* LEFT COLUMN (70% Width)                                   */}
         {/* ========================================================= */}
         <div className="lg:col-span-8 space-y-6">
+
           {/* STEP 1: CUSTOMER DETAILS */}
           <section id="quotation-step-1" className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
@@ -560,7 +467,7 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   updateProjectDetails({ projectLocation: '', title: '' });
                   addToast({ type: 'info', title: 'Customer Cleared', message: 'Customer details have been reset.' });
                 }}
-                className="text-xs font-bold text-red-500 hover:text-red-700 hover:underline flex items-center gap-1 transition-colors"
+                className="text-xs font-bold text-red-500 hover:text-red-700 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
                 title="Clear all customer fields"
               >
                 <span>✕ Clear</span>
@@ -568,7 +475,6 @@ export const NexveltQuoteProBuilder: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Customer Name */}
               <div>
                 <label htmlFor="nqp-customer-name" className="text-xs font-semibold text-[#4B5563] block mb-1">
                   Customer Name <span className="text-red-500">*</span>
@@ -580,19 +486,12 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   required
                   placeholder="e.g. Rajesh Kumar"
                   value={project.customer.name || ''}
-                  onChange={(e) => updateCustomerDetails({ name: e.target.value })}
+                  onChange={(e) => handleCustomerChange('name', e.target.value)}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.customer.name?.trim()
-                      ? 'border-red-300 focus:border-red-500 bg-red-50/30'
-                      : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !project.customer.name?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
-                {!project.customer.name?.trim() && (
-                  <p className="text-[10px] text-red-500 font-semibold mt-0.5">Required</p>
-                )}
               </div>
-
-              {/* Phone */}
               <div>
                 <label htmlFor="nqp-customer-phone" className="text-xs font-semibold text-[#4B5563] block mb-1">
                   Phone <span className="text-red-500">*</span>
@@ -604,19 +503,12 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   required
                   placeholder="e.g. +91 98765 43210"
                   value={project.customer.phone || ''}
-                  onChange={(e) => updateCustomerDetails({ phone: e.target.value })}
+                  onChange={(e) => handleCustomerChange('phone', e.target.value)}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.customer.phone?.trim()
-                      ? 'border-red-300 focus:border-red-500 bg-red-50/30'
-                      : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !project.customer.phone?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
-                {!project.customer.phone?.trim() && (
-                  <p className="text-[10px] text-red-500 font-semibold mt-0.5">Required</p>
-                )}
               </div>
-
-              {/* Email */}
               <div>
                 <label htmlFor="nqp-customer-email" className="text-xs font-semibold text-[#4B5563] block mb-1">
                   Email <span className="text-red-500">*</span>
@@ -628,19 +520,12 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   required
                   placeholder="client@example.com"
                   value={project.customer.email || ''}
-                  onChange={(e) => updateCustomerDetails({ email: e.target.value })}
+                  onChange={(e) => handleCustomerChange('email', e.target.value)}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.customer.email?.trim()
-                      ? 'border-red-300 focus:border-red-500 bg-red-50/30'
-                      : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !project.customer.email?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
-                {!project.customer.email?.trim() && (
-                  <p className="text-[10px] text-red-500 font-semibold mt-0.5">Required</p>
-                )}
               </div>
-
-              {/* Site / Project Location */}
               <div>
                 <label htmlFor="nqp-customer-site" className="text-xs font-semibold text-[#4B5563] block mb-1">
                   Site / Project <span className="text-red-500">*</span>
@@ -655,908 +540,653 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   onChange={(e) => {
                     const val = e.target.value;
                     updateProjectDetails({ projectLocation: val });
-                    updateCustomerDetails({ projectLocation: val });
+                    handleCustomerChange('projectLocation', val);
                   }}
-                  className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] focus:outline-none focus:border-[#00D9D9] font-medium"
+                  className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
+                    !project.projectLocation?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                  }`}
                 />
               </div>
             </div>
           </section>
 
-          {/* STEP 2: SELECT SCOPE OF WORK (WORK TYPE SELECTION SCREEN) */}
-          <section id="quotation-step-2" className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+          {/* STEP 2: CATEGORY-GROUPED ITEMS BUILDER */}
+          <section id="quotation-step-2" className="space-y-6">
+            
+            {/* Top Global Add Item Header Banner */}
+            <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
                 <div className="w-6 h-6 rounded-full bg-[#00D9D9] text-white text-xs font-bold flex items-center justify-center">
                   2
                 </div>
                 <div>
-                  <h2 className="text-sm font-extrabold text-[#111827]">Select Scope of Work</h2>
-                  <p className="text-[11px] text-[#6B7280]">Select one or multiple work types included in this quotation</p>
+                  <h2 className="text-sm font-extrabold text-[#111827]">Quotation Items ({items.length})</h2>
+                  <p className="text-[11px] text-[#6B7280]">Grouped by Category & Item Type</p>
                 </div>
               </div>
 
-              <span className="text-xs font-bold text-[#008080] bg-[#E6F7F7] px-3 py-1 rounded-full border border-[#00D9D9]/30">
-                {selectedScopes.length} Work Types Selected
-              </span>
+              {/* Primary + Add Item Button */}
+              <button
+                onClick={() => openAddItemModal()}
+                className="px-4 py-2 bg-[#00D9D9] hover:bg-[#00B8B8] text-white font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-xs transition transform hover:scale-[1.01] cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>+ Add Item</span>
+              </button>
             </div>
 
-            {/* Scope of Work Multi-Select Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-              {SCOPE_OF_WORK_OPTIONS.map((scope) => {
-                const isSelected = selectedScopes.includes(scope.id);
+            {/* CATEGORY GROUPS CANVAS */}
+            {activeCategoryList.length > 0 ? (
+              activeCategoryList.map((catName) => {
+                const catItems = groupedCategories[catName];
+                const isCollapsed = Boolean(collapsedCategories[catName]);
+                const catTotalArea = catItems.reduce((a, b) => a + (b.areaSqFt || 0), 0);
+                const catTotalAmount = catItems.reduce((a, b) => a + (b.amount || 0), 0);
+
                 return (
                   <div
-                    key={scope.id}
-                    onClick={() => toggleScope(scope.id)}
-                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex items-start gap-3.5 ${
-                      isSelected
-                        ? 'bg-[#E6F7F7] border-[#00D9D9] text-[#008080] shadow-2xs'
-                        : 'bg-white border-[#E2E8F0] text-[#4B5563] hover:border-[#CBD5E1] hover:bg-[#F8FAFC]'
-                    }`}
+                    key={catName}
+                    className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden transition-all duration-200"
                   >
-                    {/* Selected Checkmark Badge */}
-                    {isSelected && (
-                      <div className="w-5 h-5 rounded-full bg-[#00D9D9] text-white flex items-center justify-center absolute top-3 right-3 shadow-2xs">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    {/* CATEGORY HEADER */}
+                    <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-[#E6F7F7] border border-[#00D9D9]/30">
+                          {getCategoryIcon(catName)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-black text-[#111827]">{catName}</h3>
+                            <span className="text-[10px] font-extrabold bg-[#E2E8F0] text-[#4B5563] px-2 py-0.5 rounded-full">
+                              {catItems.length} {catItems.length === 1 ? 'Item' : 'Items'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-[#6B7280] font-semibold space-x-3 mt-0.5">
+                            <span>Total Area: <strong>{catTotalArea.toFixed(2)} sq.ft</strong></span>
+                            <span>• Total: <strong className="text-[#008080]">₹{catTotalAmount.toLocaleString('en-IN')}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Category Header Controls */}
+                      <div className="flex items-center gap-1.5">
+                        {/* Duplicate Category */}
+                        <button
+                          onClick={() => handleDuplicateCategory(catName)}
+                          className="p-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-[#F1F5F9] text-[#4B5563] hover:text-[#111827] text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                          title="Duplicate Category"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Duplicate</span>
+                        </button>
+
+                        {/* Delete Category */}
+                        <button
+                          onClick={() => handleDeleteCategory(catName)}
+                          className="p-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-red-50 text-red-600 text-xs font-bold transition cursor-pointer"
+                          title="Delete Category"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Collapse / Expand Toggle */}
+                        <button
+                          onClick={() => toggleCategoryCollapse(catName)}
+                          className="p-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-[#F1F5F9] text-[#4B5563] transition cursor-pointer"
+                          title={isCollapsed ? 'Expand Category' : 'Collapse Category'}
+                        >
+                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* CATEGORY ITEMS LIST */}
+                    {!isCollapsed && (
+                      <div className="p-4 sm:p-5 space-y-4">
+                        {catItems.map((item, idx) => {
+                          const isRecentlyAdded = item.id === recentlyAddedId;
+
+                          return (
+                            <div
+                              key={item.id}
+                              id={`item-card-${item.id}`}
+                              className={`bg-white border rounded-xl p-4 sm:p-5 space-y-4 transition-all duration-300 ${
+                                isRecentlyAdded ? 'border-[#00D9D9] ring-2 ring-[#00D9D9]/20 shadow-md' : 'border-[#E2E8F0] shadow-2xs hover:border-[#CBD5E1]'
+                              }`}
+                            >
+                              {/* Item Card Badges Header */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F1F5F9] pb-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[#E6F7F7] text-[#008080] rounded-md border border-[#00D9D9]/30">
+                                    {item.category}
+                                  </span>
+                                  <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[#F1F5F9] text-[#4B5563] rounded-md border border-[#E2E8F0]">
+                                    {item.itemType}
+                                  </span>
+                                  <span className="text-xs font-bold text-[#6B7280]">
+                                    Item #{idx + 1}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleDuplicateItem(item)}
+                                    className="p-1 rounded bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#F1F5F9] text-[#4B5563] text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    title="Duplicate Item"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveItem(item.id)}
+                                    className="p-1 rounded bg-white border border-[#E2E8F0] hover:bg-red-50 text-red-600 cursor-pointer"
+                                    title="Delete Item"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Item Card Body */}
+                              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                                {/* Thumbnail */}
+                                <div className="md:col-span-2 flex justify-center">
+                                  <img
+                                    src={item.image}
+                                    alt={item.title}
+                                    className="w-16 h-16 object-contain rounded-lg border border-[#E2E8F0] p-1 bg-[#F8FAFC]"
+                                  />
+                                </div>
+
+                                {/* Title & Specification Input */}
+                                <div className="md:col-span-5 space-y-2">
+                                  <div>
+                                    <label className="text-[10px] font-bold text-[#4B5563] uppercase block mb-0.5">Product Name</label>
+                                    <input
+                                      type="text"
+                                      ref={isRecentlyAdded ? newItemInputRef : undefined}
+                                      value={item.title}
+                                      onChange={(e) => handleItemUpdate(item.id, { title: e.target.value })}
+                                      className="w-full h-8 bg-white border border-[#E2E8F0] rounded-lg px-2.5 text-xs text-[#111827] font-bold focus:outline-none focus:border-[#00D9D9]"
+                                      placeholder="e.g. Master Bedroom Wardrobe"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] font-bold text-[#4B5563] uppercase block mb-0.5">Specification / Details</label>
+                                    <input
+                                      type="text"
+                                      value={item.subtitle}
+                                      onChange={(e) => handleItemUpdate(item.id, { subtitle: e.target.value })}
+                                      className="w-full h-7 bg-white border border-[#E2E8F0] rounded-lg px-2.5 text-[11px] text-[#4B5563] font-medium focus:outline-none focus:border-[#00D9D9]"
+                                      placeholder="e.g. 18mm HDMR with 1mm Acrylic"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Dimensions / Rate / Qty */}
+                                <div className="md:col-span-5 grid grid-cols-3 gap-2 text-center bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0]">
+                                  {/* Width x Height */}
+                                  <div>
+                                    <span className="text-[9px] font-bold text-[#6B7280] uppercase block">Dimensions</span>
+                                    {!isNonDimensionalType(item.itemType) ? (
+                                      <div className="flex items-center justify-center gap-1 mt-1">
+                                        <input
+                                          type="number"
+                                          value={item.width || ''}
+                                          onChange={(e) => handleItemUpdate(item.id, { width: parseFloat(e.target.value) || 0 })}
+                                          className="w-11 h-6 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded"
+                                        />
+                                        <span className="text-xs font-bold text-slate-400">×</span>
+                                        <input
+                                          type="number"
+                                          value={item.height || ''}
+                                          onChange={(e) => handleItemUpdate(item.id, { height: parseFloat(e.target.value) || 0 })}
+                                          className="w-11 h-6 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs font-semibold text-[#6B7280] block mt-1">Fixed Unit</span>
+                                    )}
+                                    <span className="text-[10px] font-mono text-[#008080] font-bold block mt-1">
+                                      {item.areaSqFt > 0 ? `${item.areaSqFt.toFixed(2)} sq.ft` : 'N/A'}
+                                    </span>
+                                  </div>
+
+                                  {/* Rate */}
+                                  <div>
+                                    <span className="text-[9px] font-bold text-[#6B7280] uppercase block">Rate (₹)</span>
+                                    <input
+                                      type="number"
+                                      value={item.rate || ''}
+                                      onChange={(e) => handleItemUpdate(item.id, { rate: parseFloat(e.target.value) || 0 })}
+                                      className="w-16 h-6 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded mx-auto mt-1"
+                                    />
+                                    <span className="text-[9px] text-[#6B7280] block mt-1">/ {item.pricingMethod === 'per_unit' ? 'unit' : 'sq.ft'}</span>
+                                  </div>
+
+                                  {/* Qty & Line Amount */}
+                                  <div>
+                                    <span className="text-[9px] font-bold text-[#6B7280] uppercase block">Qty & Amount</span>
+                                    <div className="flex items-center justify-center gap-1 mt-1">
+                                      <button
+                                        onClick={() => handleQtyChange(item.id, -1)}
+                                        className="w-5 h-5 rounded bg-white border border-[#E2E8F0] flex items-center justify-center text-xs font-bold"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="text-xs font-bold font-mono px-1">{item.qty}</span>
+                                      <button
+                                        onClick={() => handleQtyChange(item.id, 1)}
+                                        className="w-5 h-5 rounded bg-white border border-[#E2E8F0] flex items-center justify-center text-xs font-bold"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                    <span className="text-xs font-extrabold font-mono text-[#111827] block mt-1">
+                                      ₹{item.amount.toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* CATEGORY FOOTER TOTALS & PER-CATEGORY + ADD ITEM BUTTON */}
+                        <div className="pt-3 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3 bg-[#F8FAFC] p-3 rounded-xl">
+                          <div className="text-xs font-semibold text-[#4B5563] space-x-4">
+                            <span>{catName} Items: <strong>{catItems.length}</strong></span>
+                            <span>Total Area: <strong>{catTotalArea.toFixed(2)} sq.ft</strong></span>
+                            <span>Total Amount: <strong className="text-[#008080]">₹{catTotalAmount.toLocaleString('en-IN')}</strong></span>
+                          </div>
+
+                          {/* Per-Category Add Item Button */}
+                          <button
+                            onClick={() => openAddItemModal(catName)}
+                            className="px-3 py-1.5 bg-white hover:bg-[#E6F7F7] text-[#008080] font-bold text-xs rounded-lg border border-[#00D9D9]/40 transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Add Item to {catName}</span>
+                          </button>
+                        </div>
                       </div>
                     )}
-
-                    <div className="w-11 h-11 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-2xl shrink-0 shadow-2xs">
-                      {scope.icon}
-                    </div>
-
-                    <div className="space-y-0.5 pr-4">
-                      <h3 className={`text-xs font-extrabold ${isSelected ? 'text-[#008080]' : 'text-[#111827]'}`}>
-                        {scope.name}
-                      </h3>
-                      <p className="text-[11px] text-[#6B7280] leading-snug font-medium">
-                        {scope.description}
-                      </p>
-                    </div>
                   </div>
                 );
-              })}
-            </div>
-
-            {/* Scope Validation Alert */}
-            {selectedScopes.length === 0 && (
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center gap-2 text-xs font-bold text-amber-800">
-                <AlertCircle className="w-4 h-4 text-amber-600" />
-                <span>Please select at least one scope of work to configure products.</span>
-              </div>
-            )}
-          </section>
-
-          {/* STEP 3: ITEM CONFIGURATION (FILTERED BY SCOPE OF WORK) */}
-          <section id="quotation-step-3" className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#00D9D9] text-white text-xs font-bold flex items-center justify-center">
-                  3
+              })
+            ) : (
+              /* EMPTY STATE */
+              <div className="bg-white border-2 border-dashed border-[#CBD5E1] rounded-2xl p-10 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-[#E6F7F7] text-[#008080] flex items-center justify-center mx-auto">
+                  <Box className="w-6 h-6" />
                 </div>
-                <div>
-                  <h2 className="text-sm font-extrabold text-[#111827]">Configure Products</h2>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    <span className="text-[11px] text-[#6B7280] font-medium">Active Scope:</span>
-                    {selectedScopes.map((scopeId) => {
-                      const found = SCOPE_OF_WORK_OPTIONS.find((s) => s.id === scopeId);
-                      return (
-                        <span key={scopeId} className="text-[10px] font-bold text-[#008080] bg-[#E6F7F7] px-2 py-0.5 rounded font-mono">
-                          {found?.name}
-                        </span>
-                      );
-                    })}
-                  </div>
+                <div className="max-w-md mx-auto">
+                  <h3 className="text-base font-extrabold text-[#111827]">No Items Added Yet</h3>
+                  <p className="text-xs text-[#6B7280] mt-1">
+                    Click <strong>+ Add Item</strong> to start building your quotation by Category and Item Type.
+                  </p>
                 </div>
-              </div>
-
-              {/* Custom Category Selector */}
-              <div className="flex items-center gap-2">
-                <div className="w-44">
-                  <Select
-                    value={activeCategory}
-                    onChange={(val) => handleCategorySelect(val)}
-                    options={SCOPE_OF_WORK_OPTIONS.map((c) => ({ value: c.name, label: c.name }))}
-                  />
-                </div>
-
                 <button
-                  onClick={() => {
-                    setModalWizardStep(1);
-                    setShowAddScopeModal(true);
-                  }}
-                  className="h-12 px-3 text-xs font-bold text-[#00B8B8] bg-white border border-[#00D9D9] hover:bg-[#E6F7F7] rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  onClick={() => openAddItemModal()}
+                  className="px-5 py-2.5 bg-[#00D9D9] hover:bg-[#00B8B8] text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center gap-2 mx-auto cursor-pointer"
                 >
-                  <Plus className="w-4 h-4 text-[#00B8B8]" /> Add Item Card
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>+ Add First Item</span>
                 </button>
               </div>
-            </div>
-
-            {/* Vertically Stacked Carpenter-Friendly Quotation Cards */}
-            <div className="space-y-6">
-              {items.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="bg-white border border-[#E2E8F0] hover:border-[#00D9D9] rounded-2xl p-6 shadow-xs space-y-6 transition-all duration-200"
-                >
-                  {/* 1. CARD TOP BAR: Image, Title, Category Badge & Index */}
-                  <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#F1F5F9]">
-                    <div className="flex items-center gap-4">
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shadow-2xs shrink-0"
-                      />
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold font-mono text-[#008080] bg-[#E6F7F7] px-2.5 py-0.5 rounded-full uppercase">
-                            {item.category}
-                          </span>
-                          <span className="text-xs font-mono text-[#6B7280] font-bold">Item #{index + 1}</span>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-[#4B5563] uppercase block mb-0.5">Product Name / Specification</label>
-                          <input
-                            type="text"
-                            value={item.title}
-                            onChange={(e) => handleItemUpdate(item.id, { title: e.target.value })}
-                            placeholder="e.g. Master Bedroom Wardrobe, Custom Blinds, Labour"
-                            className="text-sm font-extrabold text-[#111827] bg-white border border-[#E2E8F0] hover:border-[#00D9D9] focus:border-[#00D9D9] rounded-lg px-2.5 py-1 block w-full focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-medium text-[#6B7280] uppercase block mb-0.5">Item Details / Notes</label>
-                          <input
-                            type="text"
-                            value={item.subtitle}
-                            onChange={(e) => handleItemUpdate(item.id, { subtitle: e.target.value })}
-                            placeholder="e.g. Custom Specification, 18mm HDMR with Premium Laminate"
-                            className="text-xs text-[#4B5563] bg-white border border-[#E2E8F0] hover:border-[#00D9D9] focus:border-[#00D9D9] rounded-lg px-2.5 py-1 block w-full focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Unit Selector (mm / ft / inch) - Only for dimensional categories */}
-                    {!isNonDimensionalCategory(item.category) && (
-                      <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#E2E8F0] p-1 rounded-xl">
-                        {(['mm', 'ft', 'inch'] as MeasurementUnit[]).map((u) => (
-                          <button
-                            key={u}
-                            onClick={() => handleItemUpdate(item.id, { unit: u })}
-                            className={`px-2.5 py-1 text-xs font-bold rounded-lg transition ${
-                              item.unit === u
-                                ? 'bg-[#00D9D9] text-white shadow-2xs'
-                                : 'text-[#6B7280] hover:text-[#111827]'
-                            }`}
-                          >
-                            {u}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 2. MEASUREMENTS SECTION (Rendered ONLY for dimensional categories) */}
-                  {!isNonDimensionalCategory(item.category) && (
-                    <div className="space-y-2">
-                      <label className="text-xs font-black tracking-wider uppercase text-[#111827] flex items-center gap-2">
-                        <span>📐 Measurements</span>
-                        <span className="text-[11px] font-normal text-[#6B7280] capitalize">({item.category} Dimensions)</span>
-                      </label>
-
-                    {/* Dynamic Measurement Grid per Category */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {item.category.toLowerCase() === 'wall panelling' ? (
-                        <>
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">LENGTH</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.width === 0 ? '' : item.width}
-                                onChange={(e) => handleItemUpdate(item.id, { width: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit}</span>
-                            </div>
-                          </div>
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">HEIGHT</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.height === 0 ? '' : item.height}
-                                onChange={(e) => handleItemUpdate(item.id, { height: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit}</span>
-                            </div>
-                          </div>
-                        </>
-                      ) : item.category.toLowerCase() === 'countertops' ? (
-                        <>
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">LENGTH</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.width === 0 ? '' : item.width}
-                                onChange={(e) => handleItemUpdate(item.id, { width: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit}</span>
-                            </div>
-                          </div>
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">WIDTH</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.height === 0 ? '' : item.height}
-                                onChange={(e) => handleItemUpdate(item.id, { height: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit}</span>
-                            </div>
-                          </div>
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">THICKNESS</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.depth === 0 ? '' : item.depth}
-                                onChange={(e) => handleItemUpdate(item.id, { depth: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">mm</span>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">HEIGHT</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.height === 0 ? '' : item.height}
-                                onChange={(e) => handleItemUpdate(item.id, { height: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit}</span>
-                            </div>
-                          </div>
-
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">WIDTH</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.width === 0 ? '' : item.width}
-                                onChange={(e) => handleItemUpdate(item.id, { width: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit}</span>
-                            </div>
-                          </div>
-
-                          <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                            <span className="text-[11px] font-black text-[#4B5563] uppercase block mb-1">DEPTH</span>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="number"
-                                value={item.depth === 0 ? '' : item.depth}
-                                onChange={(e) => handleItemUpdate(item.id, { depth: parseCleanNumber(e.target.value) })}
-                                className="w-full text-xl font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                              />
-                              <span className="text-xs font-bold text-[#6B7280] uppercase">{item.unit === 'ft' ? 'in' : item.unit}</span>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  )}
-
-                  {/* 3. MATERIAL, FINISH, RATE & QUANTITY */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-[#F1F5F9]">
-                    <div>
-                      <label htmlFor={`material-${item.id}`} className="text-xs font-bold text-[#4B5563] block mb-1">Core Material</label>
-                      <input
-                        id={`material-${item.id}`}
-                        name="coreMaterial"
-                        type="text"
-                        value={item.material}
-                        onChange={(e) => handleItemUpdate(item.id, { material: e.target.value })}
-                        className="w-full h-10 text-xs font-bold text-[#111827] bg-white border border-[#E2E8F0] rounded-xl px-3 focus:outline-none focus:border-[#00D9D9]"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor={`finish-${item.id}`} className="text-xs font-bold text-[#4B5563] block mb-1">Shutter Finish</label>
-                      <input
-                        id={`finish-${item.id}`}
-                        name="shutterFinish"
-                        type="text"
-                        value={item.finish}
-                        onChange={(e) => handleItemUpdate(item.id, { finish: e.target.value })}
-                        className="w-full h-10 text-xs font-bold text-[#111827] bg-white border border-[#E2E8F0] rounded-xl px-3 focus:outline-none focus:border-[#00D9D9]"
-                      />
-                    </div>
-
-                    {/* Editable Rate */}
-                    <div>
-                      <label htmlFor={`rate-${item.id}`} className="text-xs font-bold text-[#4B5563] block mb-1">Rate (₹ / sq.ft)</label>
-                      <div className="relative">
-                        <span className="text-xs font-bold text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2">₹</span>
-                        <input
-                          id={`rate-${item.id}`}
-                          name="itemRate"
-                          type="number"
-                          value={item.rate === 0 ? '' : item.rate}
-                          onChange={(e) => handleItemUpdate(item.id, { rate: parseCleanNumber(e.target.value) })}
-                          className="w-full h-10 text-sm font-black font-mono text-[#111827] bg-white border border-[#E2E8F0] rounded-xl pl-7 pr-3 focus:outline-none focus:border-[#00D9D9]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Large Touch Stepper Quantity */}
-                    <div>
-                      <label className="text-xs font-bold text-[#4B5563] block mb-1">Quantity</label>
-                      <div className="flex items-center h-10 border border-[#E2E8F0] rounded-xl bg-white overflow-hidden">
-                        <button
-                          onClick={() => handleQtyChange(item.id, -1)}
-                          className="w-10 h-full flex items-center justify-center text-[#111827] hover:bg-[#F1F5F9] font-black text-sm"
-                        >
-                          -
-                        </button>
-                        <span className="flex-1 text-center font-mono font-black text-sm text-[#111827]">{item.qty}</span>
-                        <button
-                          onClick={() => handleQtyChange(item.id, 1)}
-                          className="w-10 h-full flex items-center justify-center text-[#111827] hover:bg-[#F1F5F9] font-black text-sm"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4. CALCULATED RESULTS CALLOUT BOX & CARD ACTIONS */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[#F1F5F9] bg-[#E6F7F7]/60 -mx-6 -mb-6 p-4 rounded-b-2xl border-t border-[#00D9D9]/30">
-                    <div className="flex items-center gap-6">
-                      {!isNonDimensionalCategory(item.category) ? (
-                        <>
-                          <div>
-                            <span className="text-[10px] font-bold uppercase text-[#008080] block font-mono">Calculated Area</span>
-                            <span className="text-base font-black font-mono text-[#111827]">{item.areaSqFt} Sq.ft</span>
-                          </div>
-                          <div className="h-8 w-px bg-[#00D9D9]/40" />
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            <span className="text-[10px] font-bold uppercase text-[#008080] block font-mono">Quantity</span>
-                            <span className="text-base font-black font-mono text-[#111827]">{item.qty} Items/Units</span>
-                          </div>
-                          <div className="h-8 w-px bg-[#00D9D9]/40" />
-                        </>
-                      )}
-
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-[#008080] block font-mono">Calculated Amount</span>
-                        <span className="text-xl font-black font-mono text-[#00B8B8]">
-                          ₹ {item.amount.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Card Actions */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleDuplicateItem(item)}
-                        className="px-3.5 py-1.5 bg-white border border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#374151] text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <Copy className="w-3.5 h-3.5 text-[#6B7280]" /> Duplicate
-                      </button>
-
-                      <button
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="px-3.5 py-1.5 bg-white border border-red-200 hover:bg-red-50 text-red-600 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            )}
           </section>
         </div>
 
         {/* ========================================================= */}
-        {/* RIGHT COLUMN (30% Width - REAL-TIME SUMMARY & GENERATE QUOTE) */}
+        {/* RIGHT COLUMN (30% Width)                                  */}
         {/* ========================================================= */}
-        <div className="lg:col-span-4 space-y-6 sticky top-24">
-          {/* STEP 4: QUOTATION SUMMARY CARD */}
-          <section id="quotation-step-4" className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-[#F1F5F9] pb-3">
+        <div className="lg:col-span-4 space-y-6">
+
+          {/* STEP 3: SUMMARY & EXPORT PANEL */}
+          <section id="quotation-step-3" className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-xs space-y-4 sticky top-20">
+            <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-3">
               <div className="w-6 h-6 rounded-full bg-[#00D9D9] text-white text-xs font-bold flex items-center justify-center">
-                4
+                3
               </div>
-              <h2 className="text-sm font-extrabold text-[#111827]">Quotation Summary</h2>
+              <h2 className="text-sm font-extrabold text-[#111827]">Summary & Export</h2>
             </div>
 
-            <div className="space-y-2.5 text-xs">
+            {/* Category Summary Breakdown */}
+            {activeCategoryList.length > 0 && (
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-3.5 rounded-xl space-y-2 text-xs">
+                <span className="text-[10px] font-extrabold uppercase text-[#008080] block border-b border-[#E2E8F0] pb-1">
+                  Category Summary Breakdown
+                </span>
+                <div className="space-y-1.5">
+                  {activeCategoryList.map((catName) => {
+                    const catTotal = (groupedCategories[catName] || []).reduce((a, b) => a + (b.amount || 0), 0);
+                    return (
+                      <div key={catName} className="flex justify-between items-center text-[#111827]">
+                        <span className="font-semibold text-[#4B5563]">{catName}</span>
+                        <span className="font-mono font-bold">₹{catTotal.toLocaleString('en-IN')}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Calculations Breakdown */}
+            <div className="space-y-2.5 text-xs font-medium border-b border-[#E2E8F0] pb-4">
               <div className="flex justify-between text-[#4B5563]">
-                <span>Sub Total ({summaryOutput.totalAreaSqFt} sq.ft)</span>
-                <span className="font-mono font-bold text-[#111827]">₹ {summaryOutput.itemsSubtotal.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between text-[#6B7280]">
-                <span>Est. Material Cost</span>
-                <span className="font-mono font-medium text-[#111827]">₹ {summaryOutput.materialCost.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between text-[#6B7280]">
-                <span>Est. Labour Cost</span>
-                <span className="font-mono font-medium text-[#111827]">₹ {summaryOutput.labourCost.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between text-[#6B7280]">
-                <span>Est. Hardware & Fittings</span>
-                <span className="font-mono font-medium text-[#111827]">₹ {summaryOutput.hardwareCost.toLocaleString('en-IN')}</span>
+                <span>Items Subtotal ({items.length} items):</span>
+                <span className="font-mono font-bold text-[#111827]">₹{(summary.itemsSubtotal || 0).toLocaleString('en-IN')}</span>
               </div>
 
-              <div className="flex justify-between font-bold border-t border-[#E2E8F0] pt-2 text-[#111827]">
-                <span>Total (Before Tax)</span>
-                <span className="font-mono">₹ {summaryOutput.beforeTaxTotal.toLocaleString('en-IN')}</span>
-              </div>
-
-              {/* Editable Discount Row */}
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <span className="text-[#4B5563]">Discount</span>
+              {/* Discount Controls */}
+              <div className="flex items-center justify-between text-[#4B5563]">
+                <span>Discount:</span>
                 <div className="flex items-center gap-1.5">
-                  <div className="flex items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-0.5 text-[11px] font-bold">
-                    <button
-                      type="button"
-                      onClick={() => setDiscountType('%')}
-                      className={`px-2 py-0.5 rounded transition-colors ${discountType === '%' ? 'bg-[#00D9D9] text-white shadow-2xs' : 'text-[#4B5563] hover:text-[#111827]'}`}
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDiscountType('flat')}
-                      className={`px-2 py-0.5 rounded transition-colors ${discountType === 'flat' ? 'bg-[#00D9D9] text-white shadow-2xs' : 'text-[#4B5563] hover:text-[#111827]'}`}
-                    >
-                      Flat
-                    </button>
-                  </div>
                   <input
-                    id="nqp-discount-input"
-                    name="discountValue"
-                    aria-label="Discount Value"
                     type="number"
-                    value={discountPercent === 0 ? '' : discountPercent}
-                    onChange={(e) => setDiscountPercent(parseCleanNumber(e.target.value))}
-                    className="w-14 h-7 text-[11px] font-mono text-center border border-[#E2E8F0] rounded text-[#111827] font-bold"
+                    value={discountPercent || ''}
+                    onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                    className="w-16 h-7 bg-white border border-[#E2E8F0] rounded text-center text-xs font-bold font-mono"
+                    placeholder="0"
                   />
-                  <span className="font-mono font-bold text-red-600">- ₹ {summaryOutput.discountAmount.toLocaleString('en-IN')}</span>
+                  <select
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as '%' | 'flat')}
+                    className="h-7 bg-[#F8FAFC] border border-[#E2E8F0] rounded text-xs font-bold px-1"
+                  >
+                    <option value="%">%</option>
+                    <option value="flat">₹</option>
+                  </select>
                 </div>
               </div>
 
-              {summaryOutput.taxAmount > 0 && (
-                <div className="flex justify-between text-[#4B5563]">
-                  <span>Tax (GST)</span>
-                  <span className="font-mono font-bold text-[#111827]">₹ {summaryOutput.taxAmount.toLocaleString('en-IN')}</span>
+              {summary.discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-bold">
+                  <span>Applied Discount:</span>
+                  <span className="font-mono">- ₹{summary.discountAmount.toLocaleString('en-IN')}</span>
                 </div>
               )}
+            </div>
 
-              {/* Total Amount Callout */}
-              <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-[#00B8B8]">Total Amount</span>
-                <span className="text-2xl font-black font-mono text-[#00B8B8]">
-                  ₹ {summaryOutput.grandTotal.toLocaleString('en-IN')}
-                </span>
+            {/* Grand Total */}
+            <div className="bg-[#E6F7F7] border border-[#00D9D9]/40 p-4 rounded-xl space-y-1">
+              <span className="text-[10px] font-extrabold uppercase text-[#008080] tracking-wider block">Grand Total</span>
+              <div className="text-2xl font-black font-mono text-[#008080]">
+                ₹{summary.grandTotal.toLocaleString('en-IN')}
               </div>
             </div>
 
-            {/* Terms, Validity & Notes */}
-            <div className="space-y-3 pt-3 border-t border-[#F1F5F9]">
-              <div>
-                <Select
-                  label="Payment Terms"
-                  value={paymentTerms}
-                  onChange={(val) => setPaymentTerms(val)}
-                  options={[
-                    { value: '50% Advance, 50% After Completion', label: '50% Advance, 50% After Completion' },
-                    { value: '40% Advance, 50% Delivery, 10% Installation', label: '40% Advance, 50% Delivery, 10% Installation' },
-                    { value: '100% Full Advance', label: '100% Full Advance' },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="nqp-terms-conditions" className="text-[11px] font-extrabold text-[#4B5563] block mb-1">
-                  Terms & Conditions
-                </label>
-                <textarea
-                  id="nqp-terms-conditions"
-                  name="termsAndConditions"
-                  rows={3}
-                  value={termsAndConditions}
-                  onChange={(e) => setTermsAndConditions(e.target.value)}
-                  placeholder="Enter custom terms & conditions..."
-                  className="w-full text-xs p-2.5 bg-white border border-[#E2E8F0] rounded-lg text-[#111827] resize-y font-medium focus:outline-none focus:border-[#00D9D9]"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="nqp-quote-validity" className="text-[11px] font-semibold text-[#4B5563] block mb-1">Validity</label>
-                <div className="relative">
-                  <Calendar className="w-3.5 h-3.5 text-[#6B7280] absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="nqp-quote-validity"
-                    name="quoteValidity"
-                    type="text"
-                    defaultValue="30 Days"
-                    className="w-full h-8 pl-8 text-xs bg-white border border-[#E2E8F0] rounded-lg text-[#111827] font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="nqp-quote-notes" className="text-[11px] font-semibold text-[#4B5563] block mb-1">Notes</label>
-                <textarea
-                  id="nqp-quote-notes"
-                  name="quoteNotes"
-                  rows={2}
-                  defaultValue="Thank you for considering Nexvelt. We look forward to working with you."
-                  className="w-full text-xs p-2 bg-white border border-[#E2E8F0] rounded-lg text-[#111827] resize-none font-medium"
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* GENERATE QUOTE CARD */}
-          <section className="bg-[#E6F7F7] border border-[#B2EBF2] rounded-xl p-5 shadow-xs space-y-3">
+            {/* Payment Terms */}
             <div>
-              <h3 className="text-sm font-extrabold text-[#008080]">Generate Quote</h3>
-              <p className="text-xs text-[#008080]/90 mt-0.5 font-medium">
-                Create professional PDF quotation with company branding.
-              </p>
+              <label htmlFor="nqp-payment-terms" className="text-xs font-bold text-[#4B5563] block mb-1">
+                Payment Terms
+              </label>
+              <input
+                id="nqp-payment-terms"
+                type="text"
+                value={paymentTerms}
+                onChange={(e) => setPaymentTerms(e.target.value)}
+                className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] font-medium"
+              />
             </div>
 
-            <button
-              onClick={() => setPrintPreviewOpen(true)}
-              className="w-full h-10 bg-[#00D9D9] hover:bg-[#00B8B8] text-white text-xs font-bold rounded-lg shadow-sm transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
-            >
-              <FileDown className="w-4 h-4" /> Generate & Download PDF
-            </button>
+            {/* Terms & Conditions */}
+            <div>
+              <label htmlFor="nqp-terms-conditions" className="text-xs font-bold text-[#4B5563] block mb-1">
+                Terms & Conditions
+              </label>
+              <textarea
+                id="nqp-terms-conditions"
+                rows={3}
+                value={termsAndConditions}
+                onChange={(e) => setTermsAndConditions(e.target.value)}
+                className="w-full bg-white border border-[#E2E8F0] rounded-lg p-2.5 text-xs text-[#111827] font-medium focus:outline-none focus:border-[#00D9D9] leading-relaxed"
+              />
+            </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            {/* Print & PDF Action Buttons */}
+            <div className="pt-2 space-y-2">
               <button
-                onClick={handleShareWhatsApp}
-                className="h-9 bg-white border border-[#B2EBF2] hover:bg-[#E0F7F7] text-[#008080] text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                onClick={() => setPrintPreviewOpen(true)}
+                className="w-full py-3 bg-[#00D9D9] hover:bg-[#00B8B8] text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" /> Share via WhatsApp
+                <FileDown className="w-4 h-4" /> Print / Export A4 PDF
               </button>
+
               <button
-                onClick={handleSendEmail}
-                className="h-9 bg-white border border-[#B2EBF2] hover:bg-[#E0F7F7] text-[#008080] text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => setShowPurchaseModal(true)}
+                className="w-full py-2 bg-white hover:bg-[#F8FAFC] text-[#111827] font-bold text-xs rounded-xl border border-[#E2E8F0] transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Mail className="w-3.5 h-3.5 text-blue-600" /> Send Email
+                <Layers className="w-4 h-4 text-[#00B8B8]" /> Export Material BOM
               </button>
             </div>
           </section>
         </div>
       </div>
 
-      {/* Modals */}
-      <TemplateLibraryModal
-        isOpen={showTemplatesModal}
-        onClose={() => setShowTemplatesModal(false)}
-        onApplyTemplate={(template) => {
-          addToast({ type: 'success', title: 'Template Applied', message: `Added ${template.name}` });
-        }}
-      />
-
-      <RevisionManagerModal
-        isOpen={showRevisionsModal}
-        onClose={() => setShowRevisionsModal(false)}
-        project={project as any}
-        onSaveRevision={() => {}}
-        onRestoreRevision={() => {}}
-      />
-
-      <WorkshopDashboard
-        isOpen={showDashboardModal}
-        onClose={() => setShowDashboardModal(false)}
-        projects={[]}
-      />
-
-      <PurchaseListExportModal
-        isOpen={showPurchaseModal}
-        onClose={() => setShowPurchaseModal(false)}
-        project={project as any}
-      />
-
-      {/* 2-Step Sequential Product Creation Wizard Modal */}
-      {showAddScopeModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl text-[#111827]">
-            {/* Header with Step Indicator */}
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-[#E6F7F7] text-[#008080] font-mono">
-                    Step {modalWizardStep} of 2
-                  </span>
-                  <h3 className="text-base font-extrabold text-[#111827]">
-                    {modalWizardStep === 1 ? 'Select Work Type' : `Enter Dimensions for ${targetScope}`}
-                  </h3>
+      {/* ========================================================= */}
+      {/* ENTERPRISE V3 ADD ITEM WORKFLOW MODAL                      */}
+      {/* ========================================================= */}
+      {showAddItemModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl text-[#111827] overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#E6F7F7] border border-[#00D9D9]/30 flex items-center justify-center text-[#008080]">
+                  <Plus className="w-4 h-4 stroke-[3]" />
                 </div>
-                <p className="text-xs font-semibold text-[#6B7280] mt-0.5">
-                  {modalWizardStep === 1
-                    ? 'Click a work type to configure its dimensions'
-                    : 'Enter custom dimensions before adding the item card'}
-                </p>
+                <div>
+                  <h3 className="text-base font-black text-[#111827]">
+                    {addItemStep === 1 ? 'Step 1: Select Category' : 'Step 2: Select Item Type'}
+                  </h3>
+                  <p className="text-xs font-semibold text-[#6B7280]">
+                    {addItemStep === 1 ? 'Choose the room or area category' : `Select item type for ${selectedCategory}`}
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setShowAddScopeModal(false)}
+                onClick={() => setShowAddItemModal(false)}
                 className="text-[#6B7280] hover:text-[#111827] text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* STEP 1: Select Work Type */}
-            {modalWizardStep === 1 ? (
-              <div className="space-y-3">
-                <label className="text-xs font-extrabold uppercase tracking-wide text-[#4B5563] block">
-                  Select Scope of Work
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto p-1">
-                  {SCOPE_OF_WORK_OPTIONS.map((scope) => (
-                    <button
-                      key={scope.id}
-                      type="button"
-                      onClick={() => {
-                        setTargetScope(scope.name);
-                        setModalWizardStep(2);
-                      }}
-                      className={`p-3 rounded-xl border text-left flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group ${
-                        targetScope === scope.name
-                          ? 'border-[#00D9D9] bg-[#E6F7F7] ring-2 ring-[#00D9D9]/30'
-                          : 'border-[#E2E8F0] hover:border-[#00D9D9] hover:bg-[#E6F7F7]/50 bg-[#F8FAFC]'
-                      }`}
-                    >
-                      <span className="text-2xl group-hover:scale-110 transition-transform">{scope.icon}</span>
-                      <span className={`text-xs font-extrabold text-center ${targetScope === scope.name ? 'text-[#008080]' : 'text-[#111827]'}`}>
-                        {scope.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              /* STEP 2: Enter Dimensions or Rate/Qty */
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">
-                      {SCOPE_OF_WORK_OPTIONS.find((s) => s.name === targetScope)?.icon}
-                    </span>
-                    <span className="text-sm font-extrabold text-[#111827]">{targetScope}</span>
-                  </div>
-
-                  {!isNonDimensionalCategory(targetScope) && (
-                    <div className="flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] p-1 rounded-lg">
-                      {(['mm', 'ft', 'inch'] as MeasurementUnit[]).map((u) => (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => setNewUnit(u)}
-                          className={`px-2.5 py-1 text-xs font-bold rounded transition ${
-                            newUnit === u ? 'bg-[#00D9D9] text-white shadow-2xs' : 'text-[#6B7280] hover:text-[#111827]'
+            {/* Modal Body */}
+            <div className="p-5 flex-1 overflow-y-auto space-y-4">
+              
+              {/* STEP 1: SELECT CATEGORY */}
+              {addItemStep === 1 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {DEFAULT_CATEGORIES.map((cat) => {
+                      const isSelected = selectedCategory === cat.name;
+                      return (
+                        <div
+                          key={cat.id}
+                          onClick={() => {
+                            setSelectedCategory(cat.name);
+                            if (!cat.isCustom) {
+                              setAddItemStep(2);
+                            }
+                          }}
+                          className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer text-left space-y-1.5 ${
+                            isSelected
+                              ? 'bg-[#E6F7F7] border-[#00D9D9] text-[#008080] shadow-xs'
+                              : 'bg-white border-[#E2E8F0] text-[#111827] hover:border-[#00D9D9]/40 hover:bg-[#F8FAFC]'
                           }`}
                         >
-                          {u}
-                        </button>
-                      ))}
+                          <div className="flex items-center gap-2">
+                            {getCategoryIcon(cat.name)}
+                            <span className="font-extrabold text-xs block">{cat.name}</span>
+                          </div>
+                          {cat.description && (
+                            <p className="text-[10px] text-[#6B7280] line-clamp-2">{cat.description}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Category Input if "Others" Selected */}
+                  {selectedCategory === 'Others' && (
+                    <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-4 rounded-xl space-y-2.5">
+                      <label className="text-xs font-extrabold text-[#111827] block">
+                        Custom Category Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={customCategoryName}
+                        onChange={(e) => setCustomCategoryName(e.target.value)}
+                        placeholder="e.g. Temple, Balcony, Study Room, False Ceiling"
+                        className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] font-bold focus:outline-none focus:border-[#00D9D9]"
+                      />
+
+                      {/* Example Pills */}
+                      <div className="space-y-1 pt-1">
+                        <span className="text-[10px] font-bold text-[#6B7280] block">Suggestions:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {CUSTOM_CATEGORY_EXAMPLES.map((ex) => (
+                            <button
+                              key={ex}
+                              onClick={() => setCustomCategoryName(ex)}
+                              className="text-[10px] font-bold bg-white border border-[#E2E8F0] hover:border-[#00D9D9] text-[#4B5563] px-2 py-0.5 rounded-full transition cursor-pointer"
+                            >
+                              + {ex}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* Product Name & Subtitle Input */}
-                <div className="space-y-2.5 bg-[#F8FAFC] border border-[#E2E8F0] p-3 rounded-xl">
-                  <div>
-                    <label htmlFor="nqp-modal-item-name" className="text-xs font-extrabold text-[#4B5563] uppercase tracking-wide block mb-1">
-                      Product / Item Name *
-                    </label>
-                    <input
-                      id="nqp-modal-item-name"
-                      type="text"
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder={`e.g. ${targetScope === 'Other Items' ? 'Custom Blinds, Soft Close Hinges, Labour' : targetScope + ' Module'}`}
-                      className="w-full h-9 px-3 text-xs font-bold text-[#111827] bg-white border border-[#E2E8F0] rounded-lg focus:outline-none focus:border-[#00D9D9]"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="nqp-modal-item-sub" className="text-[11px] font-semibold text-[#4B5563] uppercase tracking-wide block mb-1">
-                      Specification Details / Subtitle
-                    </label>
-                    <input
-                      id="nqp-modal-item-sub"
-                      type="text"
-                      value={newSubtitle}
-                      onChange={(e) => setNewSubtitle(e.target.value)}
-                      placeholder="e.g. Warm white LED strip lights, 18mm HDMR with Premium Laminate"
-                      className="w-full h-8 px-3 text-xs font-medium text-[#111827] bg-white border border-[#E2E8F0] rounded-lg focus:outline-none focus:border-[#00D9D9]"
-                    />
-                  </div>
-                </div>
-
-                {/* Conditional Grid for Dimensional vs Non-Dimensional */}
-                {isNonDimensionalCategory(targetScope) ? (
-                  <div className="space-y-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4">
-                    <p className="text-xs font-semibold text-[#6B7280]">
-                      {targetScope} items are priced per unit / package and do not require height/width dimensions.
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-white border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                        <span className="text-[10px] font-extrabold text-[#4B5563] uppercase block mb-1">UNIT RATE (₹)</span>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-bold text-[#6B7280]">₹</span>
-                          <input
-                            type="number"
-                            value={newRate === 0 ? '' : newRate}
-                            onChange={(e) => setNewRate(parseCleanNumber(e.target.value))}
-                            placeholder="e.g. 1000"
-                            className="w-full text-base font-extrabold font-mono text-[#111827] bg-transparent focus:outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="bg-white border-2 border-[#E2E8F0] rounded-xl p-3 focus-within:border-[#00D9D9] transition">
-                        <span className="text-[10px] font-extrabold text-[#4B5563] uppercase block mb-1">QUANTITY</span>
-                        <div className="flex items-center justify-between gap-1">
-                          <input
-                            type="number"
-                            value={newQty === 0 ? '' : newQty}
-                            onChange={(e) => setNewQty(parseCleanNumber(e.target.value))}
-                            placeholder="e.g. 1"
-                            className="w-full text-base font-extrabold font-mono text-[#111827] bg-transparent focus:outline-none"
-                          />
-                          <span className="text-xs font-bold text-[#6B7280]">Units</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Dimensional Grid */
-                  <div className={`grid gap-3 ${targetScope.toLowerCase() === 'box work' ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3.5 focus-within:border-[#00D9D9] transition">
-                      <span className="text-[10px] font-extrabold text-[#4B5563] uppercase block mb-1">
-                        {targetScope.toLowerCase() === 'wall panelling' || targetScope.toLowerCase() === 'countertops' ? 'LENGTH' : 'HEIGHT'}
+              {/* STEP 2: SELECT ITEM TYPE */}
+              {addItemStep === 2 && (
+                <div className="space-y-4">
+                  {/* Category Indicator Badge */}
+                  <div className="flex items-center justify-between bg-[#F8FAFC] border border-[#E2E8F0] p-2.5 rounded-xl text-xs font-bold text-[#4B5563]">
+                    <div className="flex items-center gap-2">
+                      <span>Category:</span>
+                      <span className="bg-[#E6F7F7] text-[#008080] px-2.5 py-0.5 rounded-md border border-[#00D9D9]/30">
+                        {selectedCategory === 'Others' ? (customCategoryName || 'Custom Category') : selectedCategory}
                       </span>
-                      <div className="flex items-center justify-between gap-1">
-                        <input
-                          type="number"
-                          value={newHeight === 0 ? '' : newHeight}
-                          onChange={(e) => setNewHeight(parseCleanNumber(e.target.value))}
-                          placeholder="e.g. 2000"
-                          className="w-full text-lg font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                        />
-                        <span className="text-xs font-bold text-[#6B7280] uppercase">{newUnit}</span>
-                      </div>
                     </div>
+                    <button
+                      onClick={() => setAddItemStep(1)}
+                      className="text-[11px] text-[#00B8B8] font-bold hover:underline cursor-pointer"
+                    >
+                      ← Change Category
+                    </button>
+                  </div>
 
-                    <div className="bg-[#F8FAFC] border-2 border-[#E2E8F0] rounded-xl p-3.5 focus-within:border-[#00D9D9] transition">
-                      <span className="text-[10px] font-extrabold text-[#4B5563] uppercase block mb-1">WIDTH</span>
-                      <div className="flex items-center justify-between gap-1">
-                        <input
-                          type="number"
-                          value={newWidth === 0 ? '' : newWidth}
-                          onChange={(e) => setNewWidth(parseCleanNumber(e.target.value))}
-                          placeholder="e.g. 1500"
-                          className="w-full text-lg font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                        />
-                        <span className="text-xs font-bold text-[#6B7280] uppercase">{newUnit}</span>
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {DEFAULT_ITEM_TYPES.map((type) => {
+                      const isSelected = selectedItemType === type.name;
+                      return (
+                        <div
+                          key={type.id}
+                          onClick={() => {
+                            setSelectedItemType(type.name);
+                            if (!type.isCustom) {
+                              handleCreateNewItem(undefined, type.name);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer text-center font-extrabold text-xs ${
+                            isSelected
+                              ? 'bg-[#E6F7F7] border-[#00D9D9] text-[#008080] shadow-xs'
+                              : 'bg-white border-[#E2E8F0] text-[#111827] hover:border-[#00D9D9]/40 hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          {type.name}
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                    {/* DEPTH IS ASKED ONLY FOR BOX WORK */}
-                    {targetScope.toLowerCase() === 'box work' && (
-                      <div className="bg-[#F8FAFC] border-2 border-[#00D9D9]/40 rounded-xl p-3.5 focus-within:border-[#00D9D9] transition">
-                        <span className="text-[10px] font-extrabold text-[#008080] uppercase block mb-1">DEPTH (BOX)</span>
-                        <div className="flex items-center justify-between gap-1">
-                          <input
-                            type="number"
-                            value={newDepth === 0 ? '' : newDepth}
-                            onChange={(e) => setNewDepth(parseCleanNumber(e.target.value))}
-                            placeholder="e.g. 500"
-                            className="w-full text-lg font-black font-mono text-[#111827] bg-transparent focus:outline-none"
-                          />
-                          <span className="text-xs font-bold text-[#6B7280] uppercase">{newUnit === 'ft' ? 'in' : newUnit}</span>
+                  {/* Custom Item Type Input if "Other Item" Selected */}
+                  {selectedItemType === 'Other Item' && (
+                    <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-4 rounded-xl space-y-2.5">
+                      <label className="text-xs font-extrabold text-[#111827] block">
+                        Item Type Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={customItemTypeName}
+                        onChange={(e) => setCustomItemTypeName(e.target.value)}
+                        placeholder="e.g. Mirror Frame, Shoe Rack, Mandir, Study Table"
+                        className="w-full h-9 bg-white border border-[#E2E8F0] rounded-lg px-3 text-xs text-[#111827] font-bold focus:outline-none focus:border-[#00D9D9]"
+                      />
+
+                      {/* Example Pills */}
+                      <div className="space-y-1 pt-1">
+                        <span className="text-[10px] font-bold text-[#6B7280] block">Suggestions:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {CUSTOM_ITEM_TYPE_EXAMPLES.map((ex) => (
+                            <button
+                              key={ex}
+                              onClick={() => setCustomItemTypeName(ex)}
+                              className="text-[10px] font-bold bg-white border border-[#E2E8F0] hover:border-[#00D9D9] text-[#4B5563] px-2 py-0.5 rounded-full transition cursor-pointer"
+                            >
+                              + {ex}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-            {/* Modal Actions */}
-            <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-between gap-2">
-              {modalWizardStep === 2 ? (
+            {/* Modal Footer Controls */}
+            <div className="p-4 border-t border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
+              {addItemStep === 2 ? (
                 <button
-                  type="button"
-                  onClick={() => setModalWizardStep(1)}
-                  className="px-3.5 py-2 bg-white border border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#4B5563] hover:text-[#111827] font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+                  onClick={() => setAddItemStep(1)}
+                  className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#111827] font-bold text-xs rounded-xl hover:bg-[#F1F5F9] cursor-pointer"
                 >
-                  ← Change Work Type
+                  ← Back to Categories
                 </button>
               ) : (
                 <div />
               )}
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddScopeModal(false)}
-                  className="px-4 py-2 bg-white border border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#111827] font-bold text-xs rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                {modalWizardStep === 2 && (
-                  <button
-                    type="button"
-                    onClick={() => handleAddItemForCategory(targetScope, newWidth, newHeight, newDepth, newUnit)}
-                    className="px-5 py-2 bg-[#00D9D9] hover:bg-[#00B8B8] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" /> Add Item Card
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={() => {
+                  if (addItemStep === 1) {
+                    if (selectedCategory === 'Others' && !customCategoryName.trim()) {
+                      addToast({ type: 'warning', title: 'Category Name Required', message: 'Please enter custom category name' });
+                      return;
+                    }
+                    setAddItemStep(2);
+                  } else {
+                    if (selectedItemType === 'Other Item' && !customItemTypeName.trim()) {
+                      addToast({ type: 'warning', title: 'Item Type Required', message: 'Please enter custom item type name' });
+                      return;
+                    }
+                    handleCreateNewItem();
+                  }
+                }}
+                className="px-5 py-2 bg-[#00D9D9] hover:bg-[#00B8B8] text-white font-extrabold text-xs rounded-xl shadow-xs transition cursor-pointer"
+              >
+                {addItemStep === 1 ? 'Next: Select Item Type →' : '✓ Create Item'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Unsaved Draft Clear Confirmation Modal */}
-      {showClearConfirmModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl text-[#111827]">
-            <div className="flex items-center gap-3 border-b border-[#E2E8F0] pb-3 text-amber-600">
-              <AlertCircle className="w-6 h-6 shrink-0" />
-              <div>
-                <h3 className="text-base font-extrabold text-[#111827]">Unsaved Quotation Draft</h3>
-                <p className="text-xs font-semibold text-[#6B7280]">Approval Required Before Discarding</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-[#374151] leading-relaxed font-medium">
-              You currently have <strong className="text-[#111827]">{items.length} item card(s)</strong> configured in your active quotation draft.
-              Discarding this draft will permanently delete these item cards.
-            </p>
-
-            <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-end gap-2">
-              <button
-                onClick={() => setShowClearConfirmModal(false)}
-                className="px-4 py-2 bg-white border border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#111827] font-bold text-xs rounded-xl transition cursor-pointer"
-              >
-                Keep Working
-              </button>
-              <button
-                onClick={handleClearDraftConfirmed}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-2xs transition cursor-pointer"
-              >
-                Yes, Discard Draft
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Auxiliary Modals */}
+      {showPurchaseModal && (
+        <PurchaseListExportModal
+          isOpen={showPurchaseModal}
+          onClose={() => setShowPurchaseModal(false)}
+          project={project as any}
+        />
       )}
     </div>
   );

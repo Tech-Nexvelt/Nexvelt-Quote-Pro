@@ -53,14 +53,17 @@ export function saveMasterRateLibrary(rates: MasterRateItem[]): void {
   LocalStorageAdapter.setItem(MASTER_RATES_KEY, rates);
 }
 
-export function getDefaultRateForCategory(category: string, materialName?: string): number {
+export function getDefaultRateForCategory(category?: string, materialName?: string): number {
+  const catSafe = (category || '').toLowerCase();
+  const matSafe = (materialName || '').toLowerCase();
+
   const library = getMasterRateLibrary();
   const found = library.find(
-    (r) => r.category.toLowerCase() === category.toLowerCase() && (!materialName || r.materialName.toLowerCase().includes(materialName.toLowerCase()))
+    (r) => (r.category || '').toLowerCase() === catSafe && (!matSafe || (r.materialName || '').toLowerCase().includes(matSafe))
   );
   if (found) return found.defaultRatePerSqFt;
 
-  switch (category.toLowerCase()) {
+  switch (catSafe) {
     case 'box work':
     case 'modular furniture':
       return 950;

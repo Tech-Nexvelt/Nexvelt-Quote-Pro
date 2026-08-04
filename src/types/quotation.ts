@@ -1,6 +1,7 @@
 import { UnitSystem, DimensionsInput } from './units';
 import { PricingModel } from './pricing';
 import { Customer } from './customer';
+import { QuotationSpace } from './spaces';
 
 export interface AdditionalCharges {
   installation: number;
@@ -29,9 +30,12 @@ export interface TaxConfig {
 
 export interface QuotationItem {
   id: string;
+  spaceId?: string;
+  spaceName?: string;
   roomId?: string;
   category: string; // Wardrobe, Kitchen, TV Unit, etc.
   name: string;
+  itemOrder?: number;
   dimensions: DimensionsInput;
   // Computed decimal feet
   heightFt: number;
@@ -104,6 +108,7 @@ export interface Quotation {
   projectName: string;
   projectLocation?: string;
   
+  spaces?: QuotationSpace[];
   items: QuotationItem[];
   additionalCharges: AdditionalCharges;
   discount: DiscountConfig;

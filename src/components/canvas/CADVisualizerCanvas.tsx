@@ -33,7 +33,7 @@ export const CADVisualizerCanvas: React.FC = () => {
   const h = Math.max(1, selectedProduct.heightFt || 8);
   const w = Math.max(1, selectedProduct.widthFt || 10);
   const d = Math.max(6, selectedProduct.depthIn || 24);
-  const cat = selectedProduct.category.toLowerCase();
+  const cat = (selectedProduct.category || '').toLowerCase();
 
   // Canvas bounds calculation
   const maxW = 480 * (zoomLevel / 100);

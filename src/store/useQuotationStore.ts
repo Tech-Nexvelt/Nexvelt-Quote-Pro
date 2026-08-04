@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AdditionalCharges, DiscountConfig, Quotation, QuotationItem, QuotationStatus, TaxConfig } from '@/types/quotation';
+import { QuotationSpace, DEFAULT_GENERAL_SPACE } from '@/types/spaces';
 import { Customer } from '@/types/customer';
 import { calculateLineItem, calculateQuotationSummary } from '@/core/engines/calculationEngine';
 import { LocalStorageAdapter } from '@/storage/localStorageAdapter';
@@ -29,11 +30,10 @@ const DEFAULT_TAX: TaxConfig = {
   ratePercent: 0,
 };
 
-const SAMPLE_INITIAL_ITEMS: QuotationItem[] = [];
-
 function createInitialQuotation(): Quotation {
   const dateStr = new Date().toISOString().split('T')[0];
   const items: QuotationItem[] = [];
+  const spaces: QuotationSpace[] = [];
   const summary = calculateQuotationSummary(items, DEFAULT_ADDITIONAL_CHARGES, DEFAULT_DISCOUNT, DEFAULT_TAX);
 
   return {
@@ -50,6 +50,7 @@ function createInitialQuotation(): Quotation {
       projectLocation: '',
     },
     projectName: '',
+    spaces,
     items,
     additionalCharges: DEFAULT_ADDITIONAL_CHARGES,
     discount: DEFAULT_DISCOUNT,
@@ -58,6 +59,51 @@ function createInitialQuotation(): Quotation {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Resequence independent item numbers per Space (1, 2, 3... per space)
+ * and ensure items without a space_id belong to General space.
+ */
+function resequenceSpaceItems(items: QuotationItem[], spaces: QuotationSpace[]): { items: QuotationItem[]; spaces: QuotationSpace[] } {
+  let updatedSpaces = [...(spaces || [])];
+
+  // If there are items with no spaceId or invalid spaceId, ensure General space exists
+  const hasUnassignedItems = items.some((item) => !item.spaceId || !updatedSpaces.some((s) => s.id === item.spaceId));
+
+  if (hasUnassignedItems && !updatedSpaces.some((s) => s.id === 'space_general' || s.spaceName.toLowerCase() === 'general')) {
+    updatedSpaces.push(DEFAULT_GENERAL_SPACE);
+  }
+
+  const spaceCounters: Record<string, number> = {};
+
+  const updatedItems = items.map((item) => {
+    let targetSpaceId = item.spaceId;
+    let targetSpaceName = item.spaceName;
+
+    // Resolve space for unassigned items
+    if (!targetSpaceId || !updatedSpaces.some((s) => s.id === targetSpaceId)) {
+      const genSpace = updatedSpaces.find((s) => s.spaceName.toLowerCase() === 'general') || DEFAULT_GENERAL_SPACE;
+      targetSpaceId = genSpace.id;
+      targetSpaceName = genSpace.spaceName;
+    } else {
+      const matchingSpace = updatedSpaces.find((s) => s.id === targetSpaceId);
+      if (matchingSpace) {
+        targetSpaceName = matchingSpace.spaceName;
+      }
+    }
+
+    spaceCounters[targetSpaceId] = (spaceCounters[targetSpaceId] || 0) + 1;
+
+    return {
+      ...item,
+      spaceId: targetSpaceId,
+      spaceName: targetSpaceName,
+      itemOrder: spaceCounters[targetSpaceId],
+    };
+  });
+
+  return { items: updatedItems, spaces: updatedSpaces };
 }
 
 interface QuotationState {
@@ -70,6 +116,14 @@ interface QuotationState {
   updateCustomerDetails: (cust: Partial<Customer>) => void;
   setProjectDetails: (details: { projectName?: string; quotationNumber?: string; date?: string; projectLocation?: string; customerName?: string }) => void;
   updateProjectDetails: (details: { projectName?: string; quotationNumber?: string; date?: string; projectLocation?: string; customerName?: string }) => void;
+
+  // Space actions
+  addSpace: (space: { spaceType: QuotationSpace['spaceType']; spaceName: string }) => QuotationSpace;
+  updateSpace: (id: string, space: Partial<QuotationSpace>) => void;
+  deleteSpace: (id: string) => void;
+  duplicateSpace: (id: string) => void;
+  reorderSpaces: (spaces: QuotationSpace[]) => void;
+  toggleSpaceCollapse: (id: string) => void;
 
   // Line item actions
   setQuotationItems: (items: any[]) => void;
@@ -97,12 +151,30 @@ interface QuotationState {
 }
 
 export const useQuotationStore = create<QuotationState>((set, get) => {
-  const initialQuotation = LocalStorageAdapter.getItem<Quotation>(ACTIVE_DRAFT_KEY, createInitialQuotation());
+  const rawInitialQuotation = LocalStorageAdapter.getItem<Quotation>(ACTIVE_DRAFT_KEY, createInitialQuotation());
   const initialSaved = LocalStorageAdapter.getItem<Quotation[]>(SAVED_QUOTES_KEY, []);
 
+  // Ensure initial quotation has valid spaces and resequenced items
+  const { items: initialItems, spaces: initialSpaces } = resequenceSpaceItems(
+    rawInitialQuotation.items || [],
+    rawInitialQuotation.spaces || []
+  );
+  const initialQuotation: Quotation = {
+    ...rawInitialQuotation,
+    items: initialItems,
+    spaces: initialSpaces,
+  };
+
   const recalculateCurrent = (q: Quotation): Quotation => {
-    const summary = calculateQuotationSummary(q.items, q.additionalCharges, q.discount, q.tax);
-    const updated = { ...q, summary, updatedAt: new Date().toISOString() };
+    const { items: normalizedItems, spaces: normalizedSpaces } = resequenceSpaceItems(q.items || [], q.spaces || []);
+    const summary = calculateQuotationSummary(normalizedItems, q.additionalCharges, q.discount, q.tax);
+    const updated: Quotation = {
+      ...q,
+      items: normalizedItems,
+      spaces: normalizedSpaces,
+      summary,
+      updatedAt: new Date().toISOString(),
+    };
     LocalStorageAdapter.setItem(ACTIVE_DRAFT_KEY, updated);
     return updated;
   };
@@ -154,10 +226,129 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
         return { currentQuotation: updated };
       }),
 
+    // Space Management Actions
+    addSpace: ({ spaceType, spaceName }) => {
+      const currentSpaces = get().currentQuotation.spaces || [];
+      const newSpace: QuotationSpace = {
+        id: `space_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        spaceType,
+        spaceName,
+        displayOrder: currentSpaces.length + 1,
+        isCollapsed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      set((state) => {
+        const updatedSpaces = [...(state.currentQuotation.spaces || []), newSpace];
+        const updated = recalculateCurrent({
+          ...state.currentQuotation,
+          spaces: updatedSpaces,
+        });
+        return { currentQuotation: updated };
+      });
+
+      return newSpace;
+    },
+
+    updateSpace: (id, spaceData) =>
+      set((state) => {
+        const updatedSpaces = (state.currentQuotation.spaces || []).map((s) =>
+          s.id === id ? { ...s, ...spaceData, updatedAt: new Date().toISOString() } : s
+        );
+        const updated = recalculateCurrent({
+          ...state.currentQuotation,
+          spaces: updatedSpaces,
+        });
+        return { currentQuotation: updated };
+      }),
+
+    deleteSpace: (id) =>
+      set((state) => {
+        const updatedSpaces = (state.currentQuotation.spaces || []).filter((s) => s.id !== id);
+        // Move any items in deleted space to General space
+        const generalSpace = updatedSpaces.find((s) => s.spaceName.toLowerCase() === 'general') || DEFAULT_GENERAL_SPACE;
+        if (!updatedSpaces.some((s) => s.id === generalSpace.id)) {
+          updatedSpaces.push(generalSpace);
+        }
+
+        const updatedItems = state.currentQuotation.items.map((item) =>
+          item.spaceId === id ? { ...item, spaceId: generalSpace.id, spaceName: generalSpace.spaceName } : item
+        );
+
+        const updated = recalculateCurrent({
+          ...state.currentQuotation,
+          spaces: updatedSpaces,
+          items: updatedItems,
+        });
+        return { currentQuotation: updated };
+      }),
+
+    duplicateSpace: (id) =>
+      set((state) => {
+        const targetSpace = (state.currentQuotation.spaces || []).find((s) => s.id === id);
+        if (!targetSpace) return state;
+
+        const newSpaceId = `space_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const duplicatedSpace: QuotationSpace = {
+          ...targetSpace,
+          id: newSpaceId,
+          spaceName: `${targetSpace.spaceName} (Copy)`,
+          displayOrder: (state.currentQuotation.spaces || []).length + 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const spaceItems = state.currentQuotation.items.filter((i) => i.spaceId === id);
+        const duplicatedItems = spaceItems.map((item) =>
+          calculateLineItem({
+            ...item,
+            id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            spaceId: newSpaceId,
+            spaceName: duplicatedSpace.spaceName,
+          })
+        );
+
+        const updatedSpaces = [...(state.currentQuotation.spaces || []), duplicatedSpace];
+        const updatedItems = [...state.currentQuotation.items, ...duplicatedItems];
+
+        const updated = recalculateCurrent({
+          ...state.currentQuotation,
+          spaces: updatedSpaces,
+          items: updatedItems,
+        });
+        return { currentQuotation: updated };
+      }),
+
+    reorderSpaces: (spaces) =>
+      set((state) => {
+        const updated = recalculateCurrent({
+          ...state.currentQuotation,
+          spaces,
+        });
+        return { currentQuotation: updated };
+      }),
+
+    toggleSpaceCollapse: (id) =>
+      set((state) => {
+        const updatedSpaces = (state.currentQuotation.spaces || []).map((s) =>
+          s.id === id ? { ...s, isCollapsed: !s.isCollapsed } : s
+        );
+        return {
+          currentQuotation: {
+            ...state.currentQuotation,
+            spaces: updatedSpaces,
+          },
+        };
+      }),
+
+    // Line Item Actions
     setQuotationItems: (items: any[]) =>
       set((state) => {
         const mappedItems = items.map((i) => ({
           id: i.id || `item-${Date.now()}`,
+          spaceId: i.spaceId,
+          spaceName: i.spaceName,
           name: i.title || i.name || 'Custom Module',
           title: i.title || i.name || 'Custom Module',
           category: i.category || 'Custom Work',
@@ -301,8 +492,13 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
       set((state) => {
         const target = state.savedQuotations.find((q) => q.id === id);
         if (!target) return state;
-        LocalStorageAdapter.setItem(ACTIVE_DRAFT_KEY, target);
-        return { currentQuotation: target, editingItemId: null };
+        const { items: normalizedItems, spaces: normalizedSpaces } = resequenceSpaceItems(
+          target.items || [],
+          target.spaces || []
+        );
+        const normalizedTarget = { ...target, items: normalizedItems, spaces: normalizedSpaces };
+        LocalStorageAdapter.setItem(ACTIVE_DRAFT_KEY, normalizedTarget);
+        return { currentQuotation: normalizedTarget, editingItemId: null };
       }),
 
     deleteSavedQuotation: (id) =>

@@ -42,18 +42,18 @@ export const QuickDimensionCard: React.FC = () => {
 
   const d = selectedProduct.depthIn;
 
-  // Preview Image from product object or fallback category mapping
+  const catSafe = (selectedProduct.category || '').toLowerCase();
   const previewImg =
     selectedProduct.previewImage ||
-    (selectedProduct.category.toLowerCase().includes('tv')
+    (catSafe.includes('tv')
       ? '/furniture/tv_unit_floating.png'
-      : selectedProduct.category.toLowerCase().includes('kitchen')
+      : catSafe.includes('kitchen')
       ? '/furniture/kitchen_lshape.png'
-      : selectedProduct.category.toLowerCase().includes('pooja')
+      : catSafe.includes('pooja')
       ? '/furniture/pooja_unit_teak.png'
-      : selectedProduct.category.toLowerCase().includes('study')
+      : catSafe.includes('study')
       ? '/furniture/study_table_book.png'
-      : selectedProduct.category.toLowerCase().includes('storage')
+      : catSafe.includes('storage')
       ? '/furniture/shoe_cabinet_entry.png'
       : '/furniture/wardrobe_4door.png');
 
