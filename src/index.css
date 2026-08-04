@@ -1,0 +1,244 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary-teal: #00D9D9;
+    --secondary-teal: #00B8B8;
+    --accent-cyan: #35F5FF;
+    --bg-light: #F8FAFC;
+    --surface-white: #FFFFFF;
+    --border-gray: #E2E8F0;
+    --text-primary: #111827;
+    --text-secondary: #374151;
+    --text-muted: #4B5563;
+  }
+
+  ::selection {
+    background-color: #E0F7F7 !important;
+    color: #008080 !important;
+  }
+
+  select option {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  select option:checked,
+  select option:hover,
+  select option:focus,
+  select option:active {
+    background-color: #00D9D9 !important;
+    color: #ffffff !important;
+  }
+
+  body {
+    background-color: #F8FAFC;
+    color: #111827;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ==========================================================================
+   GLOBAL TYPOGRAPHY & DESIGN SYSTEM ACCESSIBILITY UTILITIES
+   ========================================================================== */
+
+/* Page Titles (32px, Bold 700+, Dark Charcoal) */
+.heading-page {
+  font-size: 1.875rem; /* 30px - 32px */
+  line-height: 2.25rem;
+  font-weight: 800;
+  color: #111827 !important;
+  letter-spacing: -0.025em;
+}
+
+/* Section Titles (24px, Bold 700, High-Contrast Slate) */
+.heading-section {
+  font-size: 1.375rem; /* 22px - 24px */
+  line-height: 1.75rem;
+  font-weight: 800;
+  color: #111827 !important;
+}
+
+/* Card Titles (18px, Bold 600+) */
+.heading-card {
+  font-size: 1.125rem; /* 18px */
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: #111827 !important;
+}
+
+/* Table Header Labels (15px, Bold 700, Uppercase) */
+.text-table-header {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 800;
+  color: #1F2937 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Primary Body Text (15px, Regular/Medium 500, #1F2937) */
+.text-body-main {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+  color: #1F2937 !important;
+}
+
+/* Secondary Body & Labels (14px, Medium 500+, #374151) */
+.text-body-secondary {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: #374151 !important;
+}
+
+/* Caption / Supporting Notes (13px, Medium 600, WCAG AA Compliant #4B5563) */
+.text-caption-dark {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  color: #4B5563 !important;
+}
+
+/* High-Contrast Brand Teal Callout */
+.text-brand-dark {
+  color: #008080 !important;
+  font-weight: 700;
+}
+
+/* Monospace Values & Numbers (Bold 800) */
+.text-number-bold {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 800;
+  color: #111827 !important;
+}
+
+/* Glassmorphism Light Card Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+}
+
+.glow-subtle {
+  box-shadow: 0 0 25px -5px rgba(0, 217, 217, 0.15);
+}
+
+/* Custom Input, Select, Option Focus & Choice Styling */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #00D9D9 !important;
+  box-shadow: 0 0 0 3px rgba(0, 217, 217, 0.2) !important;
+}
+
+select option {
+  background-color: #FFFFFF;
+  color: #111827;
+  padding: 8px;
+  font-weight: 600;
+}
+
+select option:hover, select option:focus, select option:active, select option:checked {
+  background-color: #E0F7F7 !important;
+  color: #00B8B8 !important;
+}
+
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00D9D9;
+}
+
+/* A4 Print Layout & Commercial Print Isolation Engine */
+@media print {
+  /* 1. Reset A4 page box size and strip default browser margins */
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
+  }
+
+  /* 2. Lock body and HTML to exact A4 page width */
+  html, body {
+    width: 210mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  /* 3. Hide all non-printable app shell elements, sidebars, headers, footers, buttons */
+  aside,
+  header,
+  footer,
+  nav,
+  .no-print,
+  button,
+  kbd,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  /* 4. Disable flex centering, transforms, fixed heights on ancestor modal containers */
+  #root,
+  [role="dialog"],
+  [role="dialog"] > div {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    flex: none !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    width: auto !important;
+    overflow: visible !important;
+    float: none !important;
+  }
+
+  /* 5. Hide everything inside body by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* 6. Make ONLY #quotation-printable-area and its children visible */
+  #quotation-printable-area,
+  #quotation-printable-area * {
+    visibility: visible !important;
+  }
+
+  /* 7. Position #quotation-printable-area at absolute top (0,0) of the A4 page */
+  #quotation-printable-area {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 6mm 10mm !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    box-sizing: border-box !important;
+    page-break-after: avoid !important;
+  }
+}
