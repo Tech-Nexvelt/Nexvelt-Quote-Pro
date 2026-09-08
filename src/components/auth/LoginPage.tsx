@@ -90,10 +90,10 @@ export const LoginPage: React.FC = () => {
           {/* Top Logo */}
           <div className="flex items-center gap-3.5">
             <img
-              src="/vlr_traders_logo.jpg"
-              alt="VLR Traders Logo"
+              src="/nexvelt_logo.png"
+              alt="Nexvelt Logo"
               className="w-12 h-12 object-contain drop-shadow-md rounded-full border border-white/20"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/nexvelt_logo.png'; }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/vlr_traders_logo.jpg'; }}
             />
             <div>
               <span className="font-extrabold text-xl tracking-tight text-[#111827] block leading-none">
