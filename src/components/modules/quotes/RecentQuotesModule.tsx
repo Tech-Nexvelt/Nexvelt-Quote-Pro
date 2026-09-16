@@ -60,7 +60,7 @@ export const RecentQuotesModule: React.FC = () => {
   const navigate = useNavigate();
   const { savedQuotations, loadQuotation, deleteSavedQuotation, createNewQuotation } = useQuotationStore();
   const { company } = useAuthStore();
-  const { addToast, setPrintModalOpen } = useUIStore();
+  const { addToast, setPrintPreviewOpen: setPrintModalOpen } = useUIStore();
 
   const [dbQuotations, setDbQuotations] = useState<QuotationRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -121,8 +121,8 @@ export const RecentQuotesModule: React.FC = () => {
         discountAmount: lq.summary?.discountAmount ?? dbMatch?.discount_amount ?? 0,
         taxAmount: lq.summary?.taxAmount ?? dbMatch?.tax_amount ?? 0,
         grandTotal: lq.summary?.grandTotal ?? dbMatch?.grand_total ?? 0,
-        updatedAt: lq.metadata?.updatedAt || dbMatch?.updated_at || new Date().toISOString(),
-        createdAt: lq.metadata?.createdAt || dbMatch?.created_at || new Date().toISOString(),
+        updatedAt: lq.updatedAt || dbMatch?.updated_at || new Date().toISOString(),
+        createdAt: lq.createdAt || dbMatch?.created_at || new Date().toISOString(),
         notes: lq.notes || dbMatch?.notes || undefined,
         terms: lq.termsAndConditions || dbMatch?.terms || undefined,
         source: dbMatch ? 'both' : 'local',
@@ -211,22 +211,29 @@ export const RecentQuotesModule: React.FC = () => {
         discount: { type: 'flat', value: quote.rawDb.discount_amount },
         tax: { enabled: quote.rawDb.tax_amount > 0, type: 'gst', ratePercent: 18 },
         summary: {
+          totalItemsCount: 0,
+          totalAreaSqFt: 0,
+          totalRunningLengthFt: 0,
           itemsSubtotal: quote.rawDb.subtotal,
           additionalChargesTotal: 0,
           discountAmount: quote.rawDb.discount_amount,
           taxableAmount: quote.rawDb.subtotal - quote.rawDb.discount_amount,
           taxAmount: quote.rawDb.tax_amount,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 0,
           grandTotal: quote.rawDb.grand_total,
-          itemCount: 0,
-          totalQty: 0,
+          grandTotalInWords: '',
+          totalCostPrice: 0,
+          totalSellingPrice: quote.rawDb.grand_total,
+          grossProfitAmount: 0,
+          profitPercentage: 0,
+          marginPercentage: 0,
         },
         notes: quote.rawDb.notes || '',
         termsAndConditions: quote.rawDb.terms || '',
-        metadata: {
-          createdAt: quote.rawDb.created_at,
-          updatedAt: quote.rawDb.updated_at,
-          version: quote.rawDb.version || 1,
-        },
+        createdAt: quote.rawDb.created_at || new Date().toISOString(),
+        updatedAt: quote.rawDb.updated_at || new Date().toISOString(),
       };
 
       useQuotationStore.setState((state) => ({
@@ -600,11 +607,11 @@ export const RecentQuotesModule: React.FC = () => {
                             </span>
                           </td>
                           <td className="p-3 text-center font-mono text-[#6B7280]">
-                            {item.dimensions?.length ? `${item.dimensions.length} × ${item.dimensions.width || item.dimensions.height} ${item.dimensions.unit || 'ft'}` : '—'}
+                            {item.heightFt || item.widthFt ? `${item.heightFt || 0}' H × ${item.widthFt || 0}' W` : '—'}
                           </td>
                           <td className="p-3 text-center font-bold text-[#111827]">{item.quantity || 1}</td>
-                          <td className="p-3 text-right font-mono text-[#4B5563]">{formatINR(item.unitRate || 0)}</td>
-                          <td className="p-3 text-right font-mono font-extrabold text-[#111827]">{formatINR(item.totalPrice || 0)}</td>
+                          <td className="p-3 text-right font-mono text-[#4B5563]">{formatINR(item.effectiveRatePerUnit || item.baseRate || 0)}</td>
+                          <td className="p-3 text-right font-mono font-extrabold text-[#111827]">{formatINR(item.lineSubtotal || 0)}</td>
                         </tr>
                       ))}
                     </tbody>
