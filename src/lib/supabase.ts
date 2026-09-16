@@ -8,6 +8,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
   },
+  db: {
+    schema: 'quotation_pro',
+  },
 });
 
 export const isSupabaseConfigured = (): boolean => {

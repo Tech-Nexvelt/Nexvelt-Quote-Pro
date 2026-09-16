@@ -35,7 +35,7 @@ export const Button: React.FC<ButtonProps> = ({
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled || isLoading || isProcessing) return;
     if (preventDoubleClick) {
-      setIsProcessing(true);
+      setTimeout(() => setIsProcessing(true), 10);
       setTimeout(() => setIsProcessing(false), 600);
     }
     if (onClick) {

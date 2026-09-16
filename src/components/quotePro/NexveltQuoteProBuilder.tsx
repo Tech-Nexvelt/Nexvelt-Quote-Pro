@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useUIStore } from '@/store/useUIStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useCompanyStore } from '@/store/useCompanyStore';
 import { useQuotationStore } from '@/store/useQuotationStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { QuotationService } from '@/services/quotation.service';
 import {
   convertToFeet,
   calculateBoxWorkArea,
@@ -61,6 +63,9 @@ import {
   PlusCircle,
   GripVertical,
   Maximize2,
+  Save,
+  CheckCircle,
+  Loader2,
 } from 'lucide-react';
 
 export interface CommercialItem {
@@ -89,6 +94,88 @@ export interface CommercialItem {
 }
 
 export const BUILDER_DRAFT_STORAGE_KEY = 'nqp_active_quotation_builder_draft_v1';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Save Quotation Button — saves to localStorage + Supabase DB
+// Lives here so it can be used directly inside NexveltQuoteProBuilder's JSX
+// without prop drilling.
+// ─────────────────────────────────────────────────────────────────────────────
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+const SaveQuotationButton: React.FC = () => {
+  const { currentQuotation, saveCurrentQuotation } = useQuotationStore();
+  const { company } = useAuthStore();
+  const { addToast } = useUIStore();
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+
+  const handleSave = useCallback(async () => {
+    if (saveState === 'saving') return;
+    setSaveState('saving');
+
+    // 1. Always persist to localStorage
+    saveCurrentQuotation();
+
+    // 2. Attempt Supabase DB upsert
+    const companyId = company?.id;
+    let dbResult: { success: boolean; error?: string } = { success: true };
+
+    if (companyId) {
+      dbResult = await QuotationService.upsertQuotation(companyId, currentQuotation);
+    }
+
+    if (dbResult.success) {
+      setSaveState('saved');
+      addToast({
+        type: 'success',
+        title: 'Quotation Saved',
+        message: companyId
+          ? `"${currentQuotation.quotationNumber}" saved to database.`
+          : `"${currentQuotation.quotationNumber}" saved locally (login to sync).`,
+      });
+      setTimeout(() => setSaveState('idle'), 2500);
+    } else {
+      setSaveState('error');
+      addToast({
+        type: 'warning',
+        title: 'Saved Locally',
+        message: `Local save OK. DB sync failed: ${dbResult.error}`,
+      });
+      setTimeout(() => setSaveState('idle'), 3000);
+    }
+  }, [saveState, saveCurrentQuotation, company, currentQuotation, addToast]);
+
+  const icon =
+    saveState === 'saving' ? (
+      <Loader2 className="w-4 h-4 animate-spin" />
+    ) : saveState === 'saved' ? (
+      <CheckCircle className="w-4 h-4" />
+    ) : (
+      <Save className="w-4 h-4" />
+    );
+
+  const label =
+    saveState === 'saving' ? 'Saving…' :
+    saveState === 'saved'  ? 'Saved!' :
+    'Save Quotation';
+
+  const colorClass =
+    saveState === 'saved'
+      ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500'
+      : saveState === 'error'
+      ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300'
+      : 'bg-white hover:bg-[#F8FAFC] text-[#111827] border-[#E2E8F0]';
+
+  return (
+    <button
+      id="btn-save-quotation-panel"
+      onClick={handleSave}
+      disabled={saveState === 'saving'}
+      className={`w-full py-2 font-bold text-xs rounded-xl border transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${colorClass}`}
+    >
+      {icon} {label}
+    </button>
+  );
+};
 
 const getCategoryIcon = (categoryName?: string) => {
   const cat = (categoryName || '').toLowerCase();
@@ -952,6 +1039,9 @@ export const NexveltQuoteProBuilder: React.FC = () => {
               >
                 <FileDown className="w-4 h-4" /> Print / Export A4 PDF
               </button>
+
+              {/* ── Save Quotation to DB ── */}
+              <SaveQuotationButton />
 
               <button
                 onClick={() => setShowPurchaseModal(true)}

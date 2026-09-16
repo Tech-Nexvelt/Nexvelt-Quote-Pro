@@ -257,7 +257,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
             <td colSpan={7} className="py-2.5 px-3 text-left uppercase tracking-widest font-black text-sm text-cyan-300">
               GRAND TOTAL (ESTIMATED):
             </td>
-            <td className="py-2.5 px-3 text-right font-mono font-black text-base text-yellow-300">
+            <td className="py-2.5 px-3 text-right font-mono font-black text-base text-yellow-300 grand-total-amount">
               {formatINR(grandTotal)}
             </td>
           </tr>

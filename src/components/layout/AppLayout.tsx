@@ -172,7 +172,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const shortcutItems: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; view: NavView; path: string }[] = [
     { id: 'price-list', label: 'Price List', icon: Tag, view: 'price-list', path: '/material-library' },
-    { id: 'recent-quotes', label: 'Recent Quotes', icon: Clock, view: 'recent-quotes', path: '/quotations' },
+    { id: 'recent-quotes', label: 'Recent Quotes', icon: Clock, view: 'recent-quotes', path: '/recent-quotes' },
     { id: 'my-templates', label: 'My Templates', icon: Bookmark, view: 'my-templates', path: '/templates' },
   ];
 
@@ -244,6 +244,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <Link to="/dashboard" className="hover:text-[#111827] hidden sm:inline">Dashboard</Link>
             <ChevronRightIcon className="w-3.5 h-3.5 text-[#9CA3AF] hidden sm:inline" />
             <span className="font-extrabold text-[#111827]">Settings</span>
+          </div>
+        );
+      case '/recent-quotes':
+        return (
+          <div className="flex items-center gap-1.5 font-semibold text-xs text-[#6B7280]">
+            <Link to="/dashboard" className="hover:text-[#111827] hidden sm:inline">Dashboard</Link>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-[#9CA3AF] hidden sm:inline" />
+            <span className="font-extrabold text-[#111827]">Recent Quotes Catalogue</span>
           </div>
         );
       default:

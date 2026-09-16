@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCustomerStore } from '@/store/useCustomerStore';
 import { useQuotationStore } from '@/store/useQuotationStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useUIStore } from '@/store/useUIStore';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
@@ -21,9 +22,15 @@ import {
 
 export const CustomerManagementModule: React.FC = () => {
   const navigate = useNavigate();
-  const { customers, addCustomer, deleteCustomer, searchCustomers } = useCustomerStore();
+  const { customers, addCustomer, deleteCustomer, searchCustomers, fetchCustomers } = useCustomerStore();
   const { updateCustomerDetails, updateProjectDetails } = useQuotationStore();
   const { addToast } = useUIStore();
+  const { company } = useAuthStore();
+  const companyId = company?.id || '5f0f21c7-a8c2-4df6-8dd4-mockcompany01';
+
+  useEffect(() => {
+    fetchCustomers(companyId);
+  }, [companyId, fetchCustomers]);
 
   const [query, setQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -40,13 +47,13 @@ export const CustomerManagementModule: React.FC = () => {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) return;
 
-    addCustomer({ name, phone, email, city, projectLocation });
+    addCustomer({ name, phone, email, city, projectLocation }, companyId ?? undefined);
     setIsAddModalOpen(false);
     setName('');
     setPhone('');
     setEmail('');
     setProjectLocation('');
-    addToast({ type: 'success', title: 'Customer Added', message: `${name} saved to customer CRM.` });
+    addToast({ type: 'success', title: 'Customer Saved', message: `${name} saved to customer database.` });
   };
 
   const handleLaunchQuotation = (customer: any) => {
@@ -274,7 +281,7 @@ export const CustomerManagementModule: React.FC = () => {
           </div>
 
           <div className="pt-3 flex justify-end gap-2 border-t border-[#F1F5F9]">
-            <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="primary">

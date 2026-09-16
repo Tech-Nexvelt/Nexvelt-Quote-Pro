@@ -46,6 +46,7 @@ import { MaterialCatalogModule } from '@/components/modules/catalog/MaterialCata
 import { TemplatesModule } from '@/components/modules/templates/TemplatesModule';
 import { ReportsModule } from '@/components/modules/reports/ReportsModule';
 import { SettingsModule } from '@/components/modules/settings/SettingsModule';
+import { RecentQuotesModule } from '@/components/modules/quotes/RecentQuotesModule';
 
 import { GlobalApplicationLoader } from '@/components/common/GlobalApplicationLoader';
 import { EnterpriseStateGallery } from '@/components/common/EnterpriseStateGallery';
@@ -231,6 +232,14 @@ export function App() {
               element={
                 <ProtectedRoute title="Nexvelt Quote Pro | Quotations">
                   <NexveltQuoteProBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recent-quotes"
+              element={
+                <ProtectedRoute title="Nexvelt Quote Pro | Recent Quotes">
+                  <RecentQuotesModule />
                 </ProtectedRoute>
               }
             />

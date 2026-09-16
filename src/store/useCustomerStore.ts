@@ -13,8 +13,25 @@ interface CustomerState {
   resetCustomers: () => void;
 }
 
+const LOCAL_CUSTOMERS_KEY = 'nqp_saved_customers_v1';
+
+function getLocalCustomers(): Customer[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_CUSTOMERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalCustomers(customers: Customer[]) {
+  try {
+    localStorage.setItem(LOCAL_CUSTOMERS_KEY, JSON.stringify(customers));
+  } catch {}
+}
+
 export const useCustomerStore = create<CustomerState>((set, get) => ({
-  customers: [],
+  customers: getLocalCustomers(),
   loading: false,
 
   fetchCustomers: async (companyId: string, search?: string) => {
@@ -34,15 +51,25 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       }));
-      set({ customers: mapped });
+
+      // Merge fetched remote records with local state to preserve any local offline records
+      const mergedMap = new Map<string, Customer>();
+      mapped.forEach((c) => mergedMap.set(c.id, c));
+      get().customers.forEach((c) => {
+        if (!mergedMap.has(c.id)) mergedMap.set(c.id, c);
+      });
+      const mergedList = Array.from(mergedMap.values());
+
+      saveLocalCustomers(mergedList);
+      set({ customers: mergedList });
     } catch {
-      // Keep current state
+      // Keep local state on error
     } finally {
       set({ loading: false });
     }
   },
 
-  addCustomer: (cust, companyId = '5f0f21c7-a8c2-4df6-8dd4-mockcompany01') => {
+  addCustomer: (cust, companyId) => {
     const now = new Date().toISOString();
     const newCust: Customer = {
       ...cust,
@@ -51,17 +78,37 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       updatedAt: now,
     };
 
-    CustomerService.createCustomer(companyId, {
-      name: cust.name,
-      phone: cust.phone,
-      email: cust.email,
-      gstin: cust.gstNumber,
-      address: cust.address || cust.projectLocation,
-      city: cust.city,
-      notes: cust.notes,
-    }).catch(() => {});
+    set((state) => {
+      const updated = [newCust, ...state.customers];
+      saveLocalCustomers(updated);
+      return { customers: updated };
+    });
 
-    set((state) => ({ customers: [newCust, ...state.customers] }));
+    const activeCompanyId = companyId || '5f0f21c7-a8c2-4df6-8dd4-mockcompany01';
+    if (activeCompanyId) {
+      CustomerService.createCustomer(activeCompanyId, {
+        name: cust.name,
+        phone: cust.phone,
+        email: cust.email,
+        gstin: cust.gstNumber,
+        address: cust.address || cust.projectLocation,
+        city: cust.city,
+        notes: cust.notes,
+      })
+        .then((record) => {
+          if (record?.id) {
+            set((state) => {
+              const updated = state.customers.map((c) => (c.id === newCust.id ? { ...c, id: record.id } : c));
+              saveLocalCustomers(updated);
+              return { customers: updated };
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn('[CustomerStore] DB save skipped or failed:', err?.message || err);
+        });
+    }
+
     return newCust;
   },
 
@@ -77,14 +124,20 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       notes: cust.notes,
     }).catch(() => {});
 
-    set((state) => ({
-      customers: state.customers.map((c) => (c.id === id ? { ...c, ...cust, updatedAt: now } : c)),
-    }));
+    set((state) => {
+      const updated = state.customers.map((c) => (c.id === id ? { ...c, ...cust, updatedAt: now } : c));
+      saveLocalCustomers(updated);
+      return { customers: updated };
+    });
   },
 
   deleteCustomer: (id, companyId = '5f0f21c7-a8c2-4df6-8dd4-mockcompany01') => {
     CustomerService.softDeleteCustomer(companyId, id).catch(() => {});
-    set((state) => ({ customers: state.customers.filter((c) => c.id !== id) }));
+    set((state) => {
+      const updated = state.customers.filter((c) => c.id !== id);
+      saveLocalCustomers(updated);
+      return { customers: updated };
+    });
   },
 
   searchCustomers: (query) => {
@@ -100,6 +153,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   },
 
   resetCustomers: () => {
+    saveLocalCustomers([]);
     set({ customers: [] });
   },
 }));
