@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { QuotationService } from '@/services/quotation.service';
 import {
   convertToFeet,
+  convertValue,
   calculateBoxWorkArea,
   calculateFrameWorkArea,
   calculateShutterArea,
@@ -380,6 +381,19 @@ export const NexveltQuoteProBuilder: React.FC = () => {
         return item;
       })
     );
+  };
+
+  // Switch an item's measurement unit, converting stored width/height/depth/length
+  // so the physical size is preserved (e.g. 1500mm -> 59.06in), not just relabeled.
+  const handleUnitChange = (item: CommercialItem, newUnit: MeasurementUnit) => {
+    if (newUnit === item.unit) return;
+    handleItemUpdate(item.id, {
+      unit: newUnit,
+      width: convertValue(item.width, item.unit, newUnit),
+      height: convertValue(item.height, item.unit, newUnit),
+      depth: convertValue(item.depth, item.unit, newUnit),
+      length: item.length ? convertValue(item.length, item.unit, newUnit) : item.length,
+    });
   };
 
   const handleQtyChange = (id: string, delta: number) => {
@@ -810,30 +824,49 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                                 </div>
 
                                 {/* Dimensions / Rate / Qty */}
-                                <div className="md:col-span-5 grid grid-cols-3 gap-2 text-center bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0]">
+                                <div className="md:col-span-5 grid grid-cols-[2fr_1fr_1fr] gap-3 text-center bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0]">
                                   {/* Width x Height */}
                                   <div>
                                     <span className="text-[9px] font-bold text-[#6B7280] uppercase block">Dimensions</span>
                                     {!isNonDimensionalType(item.itemType) ? (
-                                      <div className="flex items-center justify-center gap-1 mt-1">
-                                        <input
-                                          type="number"
-                                          value={item.width || ''}
-                                          onChange={(e) => handleItemUpdate(item.id, { width: parseFloat(e.target.value) || 0 })}
-                                          className="w-11 h-6 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded"
-                                        />
-                                        <span className="text-xs font-bold text-slate-400">×</span>
-                                        <input
-                                          type="number"
-                                          value={item.height || ''}
-                                          onChange={(e) => handleItemUpdate(item.id, { height: parseFloat(e.target.value) || 0 })}
-                                          className="w-11 h-6 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded"
-                                        />
-                                      </div>
+                                      <>
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 mt-1">
+                                          <input
+                                            type="number"
+                                            value={item.width || ''}
+                                            onChange={(e) => handleItemUpdate(item.id, { width: parseFloat(e.target.value) || 0 })}
+                                            className="w-full h-7 text-center text-[11px] font-mono font-bold bg-white border border-[#E2E8F0] rounded px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          />
+                                          <span className="text-xs font-bold text-slate-400">×</span>
+                                          <input
+                                            type="number"
+                                            value={item.height || ''}
+                                            onChange={(e) => handleItemUpdate(item.id, { height: parseFloat(e.target.value) || 0 })}
+                                            className="w-full h-7 text-center text-[11px] font-mono font-bold bg-white border border-[#E2E8F0] rounded px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          />
+                                        </div>
+                                        <div className="flex items-center justify-center gap-1 mt-1.5">
+                                          {(['mm', 'inch', 'ft'] as MeasurementUnit[]).map((u) => (
+                                            <button
+                                              key={u}
+                                              type="button"
+                                              onClick={() => handleUnitChange(item, u)}
+                                              title={u === 'inch' ? 'Inches' : u === 'ft' ? 'Feet' : 'Millimeters'}
+                                              className={`flex-1 h-5 rounded text-[9px] font-bold uppercase transition cursor-pointer ${
+                                                item.unit === u
+                                                  ? 'bg-[#00D9D9] text-white'
+                                                  : 'bg-white border border-[#E2E8F0] text-[#6B7280] hover:bg-[#F1F5F9]'
+                                              }`}
+                                            >
+                                              {u === 'inch' ? 'in' : u}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </>
                                     ) : (
                                       <span className="text-xs font-semibold text-[#6B7280] block mt-1">Fixed Unit</span>
                                     )}
-                                    <span className="text-[10px] font-mono text-[#008080] font-bold block mt-1">
+                                    <span className="text-[10px] font-mono text-[#008080] font-bold block mt-1.5">
                                       {item.areaSqFt > 0 ? `${item.areaSqFt.toFixed(2)} sq.ft` : 'N/A'}
                                     </span>
                                   </div>
@@ -845,7 +878,7 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                                       type="number"
                                       value={item.rate || ''}
                                       onChange={(e) => handleItemUpdate(item.id, { rate: parseFloat(e.target.value) || 0 })}
-                                      className="w-16 h-6 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded mx-auto mt-1"
+                                      className="w-full max-w-[72px] h-7 text-center text-xs font-mono font-bold bg-white border border-[#E2E8F0] rounded mx-auto mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
                                     <span className="text-[9px] text-[#6B7280] block mt-1">/ {item.pricingMethod === 'per_unit' ? 'unit' : 'sq.ft'}</span>
                                   </div>

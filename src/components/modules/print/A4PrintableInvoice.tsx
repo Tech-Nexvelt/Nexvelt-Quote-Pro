@@ -55,47 +55,6 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
 
   const spaceGroups = Object.values(spaceGroupMap).filter((sg) => sg.items.length > 0);
 
-  // Dynamic Material Details Extraction
-  const extractedFinishes = Array.from(
-    new Set(
-      activeItems
-        .map((i) => i.finish || i.shutterMaterialName || i.specification)
-        .filter((val): val is string => Boolean(val) && val !== '-')
-    )
-  );
-
-  const extractedMaterials = Array.from(
-    new Set(
-      activeItems
-        .map((i) => i.material || i.carcassMaterialName)
-        .filter((val): val is string => Boolean(val) && val !== '-')
-    )
-  );
-
-  const extractedHardware = Array.from(
-    new Set(
-      activeItems
-        .filter((i) => {
-          const cat = (i.category || '').toLowerCase();
-          return cat.includes('hardware') || cat.includes('accessories') || i.hardwarePackageName;
-        })
-        .map((i) => i.title || i.name || i.hardwarePackageName || i.specification)
-        .filter((val): val is string => Boolean(val) && val !== '-')
-    )
-  );
-
-  const dynamicLaminates = extractedFinishes.length > 0
-    ? extractedFinishes.join(' | ')
-    : '1 MM Upto 2000/- Any Brand. Inner Laminate (Fabric 0.8 mm)';
-
-  const dynamicMaterials = extractedMaterials.length > 0
-    ? extractedMaterials.join(' | ')
-    : '18mm block board for all doors, HDMR Board';
-
-  const dynamicHardware = extractedHardware.length > 0
-    ? extractedHardware.join(' | ')
-    : 'Hinges: Soft Close Hittech indian / Nimmi';
-
   return (
     <div
       ref={ref}
@@ -165,14 +124,15 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
       <table className="w-full border-collapse border border-black text-[10px] text-black mb-1">
         <thead>
           <tr className="bg-black text-white font-extrabold uppercase text-[10px] text-center border-b border-black">
-            <th className="py-1 px-1 border-r border-white/40 w-[5%]">#</th>
-            <th className="py-1 px-1.5 border-r border-white/40 text-left w-[22%]">Item Name</th>
-            <th className="py-1 px-1.5 border-r border-white/40 text-left w-[28%]">Specification</th>
-            <th className="py-1 px-1 border-r border-white/40 w-[8%]">Height</th>
-            <th className="py-1 px-1 border-r border-white/40 w-[8%]">Width</th>
-            <th className="py-1 px-1 border-r border-white/40 w-[9%]">Area</th>
-            <th className="py-1 px-1 border-r border-white/40 w-[6%] font-bold">QTY</th>
-            <th className="py-1 px-1.5 text-right w-[14%]">Subtotal</th>
+            <th className="py-1 px-1 border-r border-white/40 w-[4%]">#</th>
+            <th className="py-1 px-1.5 border-r border-white/40 text-left w-[19%]">Item Name</th>
+            <th className="py-1 px-1.5 border-r border-white/40 text-left w-[22%]">Specification</th>
+            <th className="py-1 px-1 border-r border-white/40 w-[7%]">Height</th>
+            <th className="py-1 px-1 border-r border-white/40 w-[7%]">Width</th>
+            <th className="py-1 px-1 border-r border-white/40 w-[8%]">Area</th>
+            <th className="py-1 px-1 border-r border-white/40 w-[9%]">Rate/Sq.ft</th>
+            <th className="py-1 px-1 border-r border-white/40 w-[5%] font-bold">QTY</th>
+            <th className="py-1 px-1.5 text-right w-[19%]">Subtotal</th>
           </tr>
         </thead>
         <tbody>
@@ -192,7 +152,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                 <React.Fragment key={spaceGroup.spaceName}>
                   {/* SPACE HEADER ROW */}
                   <tr className="bg-slate-900 text-white font-black text-xs border-b-2 border-black">
-                    <td colSpan={8} className="py-1.5 px-2 uppercase tracking-wider text-left bg-slate-900 text-cyan-300">
+                    <td colSpan={9} className="py-1.5 px-2 uppercase tracking-wider text-left bg-slate-900 text-cyan-300">
                       SPACE: {spaceGroup.spaceName} {spaceGroup.spaceType ? `[${spaceGroup.spaceType}]` : ''}
                     </td>
                   </tr>
@@ -202,7 +162,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                     <React.Fragment key={itemType}>
                       {/* ITEM TYPE SUBHEADER */}
                       <tr className="bg-slate-200 text-slate-900 font-extrabold text-[10px] border-b border-black">
-                        <td colSpan={8} className="py-1 px-3 uppercase tracking-wide text-left italic">
+                        <td colSpan={9} className="py-1 px-3 uppercase tracking-wide text-left italic">
                           {itemType} ({typeItems.length})
                         </td>
                       </tr>
@@ -215,6 +175,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                         const height = item.heightFt ? `${item.heightFt.toFixed(1)}'` : item.height || '-';
                         const width = item.widthFt ? `${item.widthFt.toFixed(1)}'` : item.width || '-';
                         const area = item.areaSqFt ? `${item.areaSqFt.toFixed(1)} sq.ft` : '-';
+                        const rate = item.rate ?? item.baseRate ?? item.effectiveRatePerUnit ?? 0;
                         const qty = item.quantity || item.qty || 1;
                         const subtotal = item.lineSubtotal || item.amount || 0;
 
@@ -226,6 +187,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{height}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{width}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{area}</td>
+                            <td className="py-1 px-1 border-r border-black text-center font-mono">{rate ? formatINR(rate).replace('₹', '') : '-'}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-semibold">{qty}</td>
                             <td className="py-1 px-1.5 text-right font-mono font-bold">{formatINR(subtotal).replace('₹', '')}</td>
                           </tr>
@@ -236,7 +198,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
 
                   {/* SPACE SUBTOTAL ROW (HIGHLIGHTED, BOLD & BIG) */}
                   <tr className="bg-[#E6F7F7] text-slate-900 font-black text-xs border-y-2 border-black">
-                    <td colSpan={7} className="py-2 px-3 text-right uppercase tracking-wider font-black text-xs text-slate-900">
+                    <td colSpan={8} className="py-2 px-3 text-right uppercase tracking-wider font-black text-xs text-slate-900">
                       {spaceGroup.spaceName.toUpperCase()} TOTAL SUBTOTAL:
                     </td>
                     <td className="py-2 px-2 text-right font-mono font-black text-sm text-[#008080]">
@@ -248,13 +210,13 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
             })
           ) : (
             <tr>
-              <td colSpan={8} className="py-4 text-center text-slate-500 italic">No items added to quotation</td>
+              <td colSpan={9} className="py-4 text-center text-slate-500 italic">No items added to quotation</td>
             </tr>
           )}
 
           {/* GRAND TOTAL ROW (HIGH CONTRAST, BOLD & BIG) */}
           <tr className="bg-slate-900 text-white font-black border-t-4 border-black">
-            <td colSpan={7} className="py-2.5 px-3 text-left uppercase tracking-widest font-black text-sm text-cyan-300">
+            <td colSpan={8} className="py-2.5 px-3 text-left uppercase tracking-widest font-black text-sm text-cyan-300">
               GRAND TOTAL (ESTIMATED):
             </td>
             <td className="py-2.5 px-3 text-right font-mono font-black text-base text-yellow-300 grand-total-amount">
@@ -264,47 +226,12 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
 
           {/* Terms & Final Notes */}
           <tr className="bg-white text-black font-extrabold text-[9.5px] border-b border-black">
-            <td colSpan={8} className="py-1 px-2 text-left uppercase">
+            <td colSpan={9} className="py-1 px-2 text-left uppercase">
               NOTE : CIVIL WORKS , WALL PAPERS & GLASS WORK NOT INCLUDED IN THIS ESTIMATION .
             </td>
           </tr>
         </tbody>
       </table>
-
-      {/* 3. Summary of Material Details Table */}
-      <div className="border border-black mt-2">
-        <div className="bg-black text-white font-extrabold text-xs text-center py-1 border-b border-black uppercase tracking-wider">
-          Summary of Material Details:
-        </div>
-        <table className="w-full border-collapse text-[10px] text-black">
-          <tbody>
-            <tr className="border-b border-black">
-              <td className="w-1/4 p-1.5 border-r border-black font-bold text-right bg-slate-50">Laminates / Finishes :</td>
-              <td className="w-3/4 p-1.5 font-medium">{dynamicLaminates}</td>
-            </tr>
-            <tr className="border-b border-black">
-              <td className="p-1.5 border-r border-black font-bold text-right bg-slate-50">Materials / Core Board :</td>
-              <td className="p-1.5 font-medium">{dynamicMaterials}</td>
-            </tr>
-            <tr className="border-b border-black">
-              <td className="p-1.5 border-r border-black font-bold text-right bg-slate-50">Hardware & Accessories :</td>
-              <td className="p-1.5 font-medium">{dynamicHardware}</td>
-            </tr>
-            <tr className="border-b border-black">
-              <td className="p-1.5 border-r border-black font-bold text-right bg-slate-50">PAYMENT TERMS :</td>
-              <td className="p-1.5 font-medium whitespace-pre-line">
-                {currentQuotation?.termsAndConditions || '10% Signup payment , 50% in production, 30% before lamination, 10% before handover'}
-              </td>
-            </tr>
-            <tr>
-              <td className="p-1.5 border-r border-black font-bold text-right bg-slate-50">NOTE :</td>
-              <td className="p-1.5 font-medium">
-                {currentQuotation?.notes || 'Any Extra work will be added as per sft price , Any add-ons will be charged in Laminates or Hardware as per cost.'}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 });

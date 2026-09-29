@@ -159,6 +159,33 @@ export function calculateCountertopArea(length: number, width: number, unit: Mea
   return parseFloat((lFt * wFt).toFixed(2));
 }
 
+/**
+ * Converts a value from one measurement unit to another, preserving physical
+ * size (e.g. 1500mm -> 59.06in), rather than just relabeling the raw number.
+ */
+export function convertValue(
+  value: number,
+  fromUnit: MeasurementUnit | string,
+  toUnit: MeasurementUnit | string
+): number {
+  if (!value) return 0;
+  if (fromUnit === toUnit) return value;
+  const mm = convertToMM(value, fromUnit as MeasurementUnit);
+  switch (toUnit) {
+    case 'cm':
+      return parseFloat((mm / 10).toFixed(2));
+    case 'm':
+      return parseFloat((mm / 1000).toFixed(3));
+    case 'inch':
+      return parseFloat((mm / 25.4).toFixed(2));
+    case 'ft':
+      return parseFloat((mm / 304.8).toFixed(3));
+    case 'mm':
+    default:
+      return parseFloat(mm.toFixed(2));
+  }
+}
+
 export function validateDimensions(width: number, height: number): { isValid: boolean; error?: string } {
   if (width <= 0) return { isValid: false, error: 'Width must be greater than 0.' };
   if (height <= 0) return { isValid: false, error: 'Height must be greater than 0.' };
