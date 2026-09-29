@@ -4,6 +4,24 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useCompanyStore } from '@/store/useCompanyStore';
 import { formatINR } from '@/utils/currency';
 
+const UNIT_SUFFIX: Record<string, string> = {
+  mm: ' mm',
+  cm: ' cm',
+  m: ' m',
+  inch: '"',
+  ft: "'",
+};
+
+// Show the dimension in the unit the user entered it in; fall back to feet for legacy items.
+const formatDimension = (value: unknown, valueFt: number | undefined, unit: string | undefined): string => {
+  const num = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  if (unit && UNIT_SUFFIX[unit] && num > 0) {
+    return `${parseFloat(num.toFixed(2))}${UNIT_SUFFIX[unit]}`;
+  }
+  if (valueFt) return `${valueFt.toFixed(1)}'`;
+  return value ? String(value) : '-';
+};
+
 export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
   const { currentQuotation } = useQuotationStore();
   const { project } = useProjectStore();
@@ -172,8 +190,8 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                         const orderNum = itemIdx + 1;
                         const title = item.title || item.name || `Item #${orderNum}`;
                         const spec = item.specification || item.finish || item.shutterMaterialName || item.material || item.subtitle || '-';
-                        const height = item.heightFt ? `${item.heightFt.toFixed(1)}'` : item.height || '-';
-                        const width = item.widthFt ? `${item.widthFt.toFixed(1)}'` : item.width || '-';
+                        const height = formatDimension(item.height, item.heightFt, item.unit);
+                        const width = formatDimension(item.width, item.widthFt, item.unit);
                         const area = item.areaSqFt ? `${item.areaSqFt.toFixed(1)} sq.ft` : '-';
                         const rate = item.rate ?? item.baseRate ?? item.effectiveRatePerUnit ?? 0;
                         const qty = item.quantity || item.qty || 1;

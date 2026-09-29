@@ -3,6 +3,7 @@ import { AdditionalCharges, DiscountConfig, Quotation, QuotationItem, QuotationS
 import { QuotationSpace, DEFAULT_GENERAL_SPACE } from '@/types/spaces';
 import { Customer } from '@/types/customer';
 import { calculateLineItem, calculateQuotationSummary } from '@/core/engines/calculationEngine';
+import { convertToFeet } from '@/core/engines/measurementEngine';
 import { LocalStorageAdapter } from '@/storage/localStorageAdapter';
 
 const ACTIVE_DRAFT_KEY = 'ice_active_quotation_draft';
@@ -357,9 +358,9 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
           width: i.width || 0,
           height: i.height || 0,
           depth: i.depth || 0,
-          widthFt: i.width ? i.width / 304.8 : 0,
-          heightFt: i.height ? i.height / 304.8 : 0,
-          depthIn: i.depth ? i.depth / 25.4 : 0,
+          widthFt: convertToFeet(i.width, i.unit || 'mm'),
+          heightFt: convertToFeet(i.height, i.unit || 'mm'),
+          depthIn: convertToFeet(i.depth, i.unit || 'mm') * 12,
           areaSqFt: i.areaSqFt || 0,
           baseRate: i.rate || 0,
           rate: i.rate || 0,
