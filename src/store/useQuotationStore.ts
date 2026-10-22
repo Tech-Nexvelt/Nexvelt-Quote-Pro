@@ -352,7 +352,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
           spaceName: i.spaceName,
           name: i.title || i.name || 'Custom Module',
           title: i.title || i.name || 'Custom Module',
-          category: i.category || 'Custom Work',
+          category: i.itemType || i.category || 'Custom Work',
           pricingMethod: i.pricingMethod || 'per_sqft',
           unit: i.unit || 'mm',
           width: i.width || 0,
@@ -370,6 +370,8 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
           lineSubtotal: i.amount || 0,
           finish: i.finish || '',
           material: i.material || '',
+          // Map subtitle (NexveltQuoteProBuilder's spec field) to specification
+          specification: i.specification || i.subtitle || undefined,
         }));
         const updated = recalculateCurrent({
           ...state.currentQuotation,

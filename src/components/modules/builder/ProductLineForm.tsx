@@ -43,6 +43,7 @@ export const ProductLineForm: React.FC = () => {
   const [shutterMatId, setShutterMatId] = useState<string>('');
   const [hardwareId, setHardwareId] = useState<string>('');
   const [buyingCost, setBuyingCost] = useState<number>(950);
+  const [specification, setSpecification] = useState<string>('');
 
   // Fill editing item values if editing mode is active
   useEffect(() => {
@@ -60,6 +61,7 @@ export const ProductLineForm: React.FC = () => {
       setBaseRate(editingItem.baseRate);
       setQuantity(editingItem.quantity);
       setBuyingCost(editingItem.buyingCostPerUnit || 0);
+      setSpecification(editingItem.specification || '');
     }
   }, [editingItemId, editingItem]);
 
@@ -145,6 +147,7 @@ export const ProductLineForm: React.FC = () => {
       hardwarePackageName: selectedHw ? selectedHw.name : undefined,
       hardwareCostAddon,
       buyingCostPerUnit: buyingCost,
+      specification: specification.trim() || undefined,
     };
 
     if (editingItemId) {
@@ -420,6 +423,22 @@ export const ProductLineForm: React.FC = () => {
                 prefixSymbol="₹"
                 helperText="Used for profit margin analysis"
               />
+            </div>
+
+            {/* Specification / Details */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                Specification / Details
+              </label>
+              <textarea
+                id="specification-input"
+                rows={2}
+                value={specification}
+                onChange={(e) => setSpecification(e.target.value)}
+                placeholder="e.g. Gurjanwood with 1mm laminate, 18mm HDMR board…"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D9D9]/50 resize-none"
+              />
+              <p className="text-[10px] text-slate-400">Appears in the invoice Specification column</p>
             </div>
 
             {/* Submit Action */}

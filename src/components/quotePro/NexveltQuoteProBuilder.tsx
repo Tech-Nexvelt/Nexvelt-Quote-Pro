@@ -227,7 +227,10 @@ export const NexveltQuoteProBuilder: React.FC = () => {
   const { setPrintPreviewOpen, addToast } = useUIStore();
   const { project, updateCustomerDetails, updateProjectDetails } = useProjectStore();
   const { company } = useCompanyStore();
-  const { setQuotationItems, updateTermsAndConditions, updateCustomerDetails: updateQuoteCustomer } = useQuotationStore();
+  const { setQuotationItems, updateTermsAndConditions, updateCustomerDetails: updateQuoteCustomer, currentQuotation } = useQuotationStore();
+
+  // Canonical customer source — read from currentQuotation (persisted), not project (resets each session)
+  const customer = currentQuotation.customer;
 
   const handleCustomerChange = (field: string, val: string) => {
     updateCustomerDetails({ [field]: val });
@@ -564,7 +567,9 @@ export const NexveltQuoteProBuilder: React.FC = () => {
               </div>
               <button
                 onClick={() => {
-                  updateCustomerDetails({ name: '', phone: '', email: '', city: '', projectLocation: '' });
+                  const empty = { name: '', phone: '', email: '', city: '', projectLocation: '' };
+                  updateCustomerDetails(empty);
+                  updateQuoteCustomer(empty);
                   updateProjectDetails({ projectLocation: '', title: '' });
                   addToast({ type: 'info', title: 'Customer Cleared', message: 'Customer details have been reset.' });
                 }}
@@ -586,10 +591,10 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   type="text"
                   required
                   placeholder="e.g. Rajesh Kumar"
-                  value={project.customer.name || ''}
+                  value={customer.name || ''}
                   onChange={(e) => handleCustomerChange('name', e.target.value)}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.customer.name?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !customer.name?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
               </div>
@@ -603,10 +608,10 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   type="tel"
                   required
                   placeholder="e.g. +91 98765 43210"
-                  value={project.customer.phone || ''}
+                  value={customer.phone || ''}
                   onChange={(e) => handleCustomerChange('phone', e.target.value)}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.customer.phone?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !customer.phone?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
               </div>
@@ -620,10 +625,10 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   type="email"
                   required
                   placeholder="client@example.com"
-                  value={project.customer.email || ''}
+                  value={customer.email || ''}
                   onChange={(e) => handleCustomerChange('email', e.target.value)}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.customer.email?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !customer.email?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
               </div>
@@ -637,14 +642,14 @@ export const NexveltQuoteProBuilder: React.FC = () => {
                   type="text"
                   required
                   placeholder="e.g. Flat 4B, Siddipet"
-                  value={project.projectLocation ?? ''}
+                  value={customer.projectLocation ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
                     updateProjectDetails({ projectLocation: val });
                     handleCustomerChange('projectLocation', val);
                   }}
                   className={`w-full h-9 bg-white border rounded-lg px-3 text-xs text-[#111827] focus:outline-none font-medium transition-colors ${
-                    !project.projectLocation?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
+                    !customer.projectLocation?.trim() ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-[#E2E8F0] focus:border-[#00D9D9]'
                   }`}
                 />
               </div>

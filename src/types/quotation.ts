@@ -56,6 +56,7 @@ export interface QuotationItem {
   hardwareCostAddon?: number;
   
   buyingCostPerUnit?: number; // For profit analysis
+  specification?: string; // Free-text Specification / Details entered by user
   notes?: string;
   
   // Calculated financial line output

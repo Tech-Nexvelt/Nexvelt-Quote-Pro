@@ -189,7 +189,11 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                       {typeItems.map((item, itemIdx) => {
                         const orderNum = itemIdx + 1;
                         const title = item.title || item.name || `Item #${orderNum}`;
-                        const spec = item.specification || item.finish || item.shutterMaterialName || item.material || item.subtitle || '-';
+                        const spec = (item.specification != null && item.specification !== '')
+                          ? item.specification
+                          : (item.subtitle != null && item.subtitle !== '' && !item.subtitle.includes('Custom Specification'))
+                          ? item.subtitle
+                          : '';
                         const height = formatDimension(item.height, item.heightFt, item.unit);
                         const width = formatDimension(item.width, item.widthFt, item.unit);
                         const area = item.areaSqFt ? `${item.areaSqFt.toFixed(1)} sq.ft` : '-';
@@ -201,7 +205,7 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                           <tr key={item.id} className="border-b border-black/70 hover:bg-slate-50">
                             <td className="py-1 px-1 border-r border-black font-mono font-bold text-center">{orderNum}</td>
                             <td className="py-1 px-1.5 border-r border-black font-bold text-left">{title}</td>
-                            <td className="py-1 px-1.5 border-r border-black text-left text-[9.5px]">{spec}</td>
+                            <td className="py-1 px-1.5 border-r border-black text-left text-[9.5px] whitespace-pre-wrap break-words max-w-[22%]">{spec}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{height}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{width}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{area}</td>

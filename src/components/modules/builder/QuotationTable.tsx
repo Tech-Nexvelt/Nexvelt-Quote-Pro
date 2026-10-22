@@ -291,6 +291,11 @@ export const QuotationTable: React.FC = () => {
                                       <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                                         {item.name}
                                       </span>
+                                      {item.specification && (
+                                        <span className="text-[11px] text-[#00B8B8] dark:text-[#35F5FF] font-medium italic">
+                                          {item.specification}
+                                        </span>
+                                      )}
                                       <div className="text-[11px] text-slate-500 space-x-2">
                                         {item.carcassMaterialName && <span>Carcass: {item.carcassMaterialName}</span>}
                                         {item.shutterMaterialName && <span>• Finish: {item.shutterMaterialName}</span>}

@@ -73,6 +73,7 @@ export function calculateLineItem(item: Partial<QuotationItem>): QuotationItem {
     hardwarePackageName: item.hardwarePackageName,
     hardwareCostAddon: hardwareAddon,
     buyingCostPerUnit: buyingRate,
+    specification: item.specification,
     notes: item.notes,
     effectiveRatePerUnit,
     lineSubtotal,

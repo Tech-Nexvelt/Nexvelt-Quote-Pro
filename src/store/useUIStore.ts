@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useQuotationStore } from './useQuotationStore';
 
 export type NavView =
   | 'builder'
@@ -97,7 +98,32 @@ export const useUIStore = create<UIState>((set, get) => {
 
     setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
     toggleCommandPalette: () => set((state) => ({ isCommandPaletteOpen: !state.isCommandPaletteOpen })),
-    setPrintPreviewOpen: (open) => set({ isPrintPreviewOpen: open }),
+    setPrintPreviewOpen: (open) => {
+      if (open) {
+        const { currentQuotation } = useQuotationStore.getState();
+
+        const hasItems = currentQuotation?.items && currentQuotation.items.length > 0;
+        if (!hasItems) {
+          get().addToast({
+            type: 'warning',
+            title: 'No Items to Print',
+            message: 'Add at least one item to the quotation before opening the print preview.',
+          });
+          return;
+        }
+
+        const customerName = currentQuotation?.customer?.name?.trim();
+        if (!customerName) {
+          get().addToast({
+            type: 'warning',
+            title: 'Customer Details Required',
+            message: 'Please enter the customer name before opening the print preview.',
+          });
+          return;
+        }
+      }
+      set({ isPrintPreviewOpen: open });
+    },
     setResetModalOpen: (open) => set({ isResetModalOpen: open }),
 
     addToast: (toast) => {

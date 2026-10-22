@@ -79,3 +79,110 @@ describe('Financial Calculation Engines Test Suite', () => {
     expect(summary.grandTotal).toBe(109386);
   });
 });
+
+// ─── Specification Synchronization Tests ────────────────────────────────────
+describe('Specification / Details Synchronization', () => {
+  it('should preserve specification through calculateLineItem', () => {
+    const item = calculateLineItem({
+      name: 'Hall Partition',
+      category: 'Partition',
+      areaSqFt: 20,
+      pricingModel: 'sqft',
+      baseRate: 900,
+      quantity: 1,
+      specification: 'Gurjanwood with 1mm laminate',
+    });
+    expect(item.specification).toBe('Gurjanwood with 1mm laminate');
+  });
+
+  it('should preserve specification when item has no spec (backward compat)', () => {
+    const item = calculateLineItem({
+      name: 'Box Work',
+      category: 'Box Work',
+      areaSqFt: 15,
+      pricingModel: 'sqft',
+      baseRate: 800,
+      quantity: 1,
+      // no specification field — simulates legacy data
+    });
+    expect(item.specification).toBeUndefined();
+    // Ensure financials are still correct
+    expect(item.lineSubtotal).toBe(12000);
+  });
+
+  it('should keep specifications isolated between items', () => {
+    const item1 = calculateLineItem({
+      id: 'item_1',
+      name: 'Hall Partition',
+      areaSqFt: 20,
+      pricingModel: 'sqft',
+      baseRate: 900,
+      quantity: 1,
+      specification: 'Gurjanwood with 1mm laminate',
+    });
+    const item2 = calculateLineItem({
+      id: 'item_2',
+      name: 'TV Unit',
+      areaSqFt: 12,
+      pricingModel: 'sqft',
+      baseRate: 1200,
+      quantity: 1,
+      specification: '18mm HDMR board with laminate',
+    });
+    expect(item1.specification).toBe('Gurjanwood with 1mm laminate');
+    expect(item2.specification).toBe('18mm HDMR board with laminate');
+    expect(item1.specification).not.toBe(item2.specification);
+  });
+
+  it('should preserve specification when duplicating an item (spread)', () => {
+    const original = calculateLineItem({
+      id: 'orig_1',
+      name: 'Frame Work',
+      areaSqFt: 18,
+      pricingModel: 'sqft',
+      baseRate: 750,
+      quantity: 1,
+      specification: '18mm HDMR board',
+    });
+    const duplicate = calculateLineItem({
+      ...original,
+      id: 'dup_1',
+      name: 'Frame Work (Copy)',
+    });
+    expect(duplicate.specification).toBe('18mm HDMR board');
+    expect(duplicate.id).toBe('dup_1');
+    // Ensure original is unchanged
+    expect(original.specification).toBe('18mm HDMR board');
+  });
+
+  it('should not overwrite specification when updating unrelated fields', () => {
+    const original = calculateLineItem({
+      id: 'item_x',
+      name: 'Wardrobe',
+      areaSqFt: 40,
+      pricingModel: 'sqft',
+      baseRate: 1200,
+      quantity: 1,
+      specification: 'Marine Ply with PU finish',
+    });
+    // Simulate updateItem: spread original + changed quantity
+    const updated = calculateLineItem({ ...original, quantity: 2 });
+    expect(updated.specification).toBe('Marine Ply with PU finish');
+    expect(updated.quantity).toBe(2);
+    // Financials must reflect new quantity
+    expect(updated.lineSubtotal).toBe(original.lineSubtotal * 2);
+  });
+
+  it('should handle empty string specification gracefully', () => {
+    const item = calculateLineItem({
+      name: 'Loft',
+      areaSqFt: 8,
+      pricingModel: 'sqft',
+      baseRate: 600,
+      quantity: 1,
+      specification: '',
+    });
+    // Empty string passes through — caller decides whether to render it
+    expect(item.specification).toBe('');
+  });
+});
