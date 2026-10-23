@@ -3,6 +3,7 @@ import { useQuotationStore } from '@/store/useQuotationStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useCompanyStore } from '@/store/useCompanyStore';
 import { formatINR } from '@/utils/currency';
+import { groupItemsBySpaceAndType, resolveItemSpecification, resolveItemType } from '@/utils/quotationGrouping';
 
 const UNIT_SUFFIX: Record<string, string> = {
   mm: ' mm',
@@ -49,29 +50,9 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
 
   const grandTotal = activeSummary?.grandTotal || 0;
 
-  // Group items hierarchy: Space -> Item Type -> Items
-  // Group by spaceId/spaceName first
-  const spaceGroupMap: Record<string, { spaceName: string; spaceType?: string; items: any[] }> = {};
+  // Use the shared grouping utility: Space → Item Type → Items
+  const spaceGroups = groupItemsBySpaceAndType(activeItems, activeSpaces);
 
-  activeItems.forEach((item) => {
-    const sId = item.spaceId || 'space_general';
-    const sName = item.spaceName || 'General';
-    if (!spaceGroupMap[sId]) {
-      spaceGroupMap[sId] = { spaceName: sName, items: [] };
-    }
-    spaceGroupMap[sId].items.push(item);
-  });
-
-  // Ensure defined spaces are preserved
-  activeSpaces.forEach((s) => {
-    if (!spaceGroupMap[s.id]) {
-      spaceGroupMap[s.id] = { spaceName: s.spaceName, spaceType: s.spaceType, items: [] };
-    } else {
-      spaceGroupMap[s.id].spaceType = s.spaceType;
-    }
-  });
-
-  const spaceGroups = Object.values(spaceGroupMap).filter((sg) => sg.items.length > 0);
 
   return (
     <div
@@ -155,45 +136,23 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
         </thead>
         <tbody>
           {spaceGroups.length > 0 ? (
-            spaceGroups.map((spaceGroup) => {
-              const spaceSubtotal = spaceGroup.items.reduce((acc, i) => acc + (i.lineSubtotal || i.amount || 0), 0);
-
-              // Group items inside space by Item Type / Category
-              const itemTypeMap: Record<string, any[]> = {};
-              spaceGroup.items.forEach((item) => {
-                const cat = item.category || 'General Work';
-                if (!itemTypeMap[cat]) itemTypeMap[cat] = [];
-                itemTypeMap[cat].push(item);
-              });
-
-              return (
-                <React.Fragment key={spaceGroup.spaceName}>
+            spaceGroups.map((spaceGroup) => (
+                <React.Fragment key={spaceGroup.spaceId}>
                   {/* SPACE HEADER ROW */}
                   <tr className="bg-slate-900 text-white font-black text-xs border-b-2 border-black">
                     <td colSpan={9} className="py-1.5 px-2 uppercase tracking-wider text-left bg-slate-900 text-cyan-300">
-                      SPACE: {spaceGroup.spaceName} {spaceGroup.spaceType ? `[${spaceGroup.spaceType}]` : ''}
+                      {spaceGroup.spaceName} ({spaceGroup.itemTypeGroups.reduce((n, g) => n + g.items.length, 0)})
                     </td>
                   </tr>
 
-                  {/* ITEM TYPE GROUPS WITHIN SPACE */}
-                  {Object.entries(itemTypeMap).map(([itemType, typeItems]) => (
-                    <React.Fragment key={itemType}>
-                      {/* ITEM TYPE SUBHEADER */}
-                      <tr className="bg-slate-200 text-slate-900 font-extrabold text-[10px] border-b border-black">
-                        <td colSpan={9} className="py-1 px-3 uppercase tracking-wide text-left italic">
-                          {itemType} ({typeItems.length})
-                        </td>
-                      </tr>
-
-                      {/* ITEM ROWS WITH INDEPENDENT CATEGORY/SPACE NUMBERING */}
-                      {typeItems.map((item, itemIdx) => {
+                  {/* ITEM ROWS: numbered 1..n per room, in the order they were added */}
+                  {spaceGroup.itemTypeGroups
+                    .flatMap((g) => g.items)
+                    .sort((x: any, y: any) => (x.itemOrder ?? 0) - (y.itemOrder ?? 0))
+                    .map((item: any, itemIdx: number) => {
                         const orderNum = itemIdx + 1;
                         const title = item.title || item.name || `Item #${orderNum}`;
-                        const spec = (item.specification != null && item.specification !== '')
-                          ? item.specification
-                          : (item.subtitle != null && item.subtitle !== '' && !item.subtitle.includes('Custom Specification'))
-                          ? item.subtitle
-                          : '';
+                        const spec = resolveItemSpecification(item);
                         const height = formatDimension(item.height, item.heightFt, item.unit);
                         const width = formatDimension(item.width, item.widthFt, item.unit);
                         const area = item.areaSqFt ? `${item.areaSqFt.toFixed(1)} sq.ft` : '-';
@@ -204,7 +163,12 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                         return (
                           <tr key={item.id} className="border-b border-black/70 hover:bg-slate-50">
                             <td className="py-1 px-1 border-r border-black font-mono font-bold text-center">{orderNum}</td>
-                            <td className="py-1 px-1.5 border-r border-black font-bold text-left">{title}</td>
+                            <td className="py-1 px-1.5 border-r border-black font-bold text-left">
+                              {title}
+                              {resolveItemType(item).toLowerCase() !== title.trim().toLowerCase() && (
+                                <div className="text-[8.5px] font-semibold italic uppercase text-slate-500">{resolveItemType(item)}</div>
+                              )}
+                            </td>
                             <td className="py-1 px-1.5 border-r border-black text-left text-[9.5px] whitespace-pre-wrap break-words max-w-[22%]">{spec}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{height}</td>
                             <td className="py-1 px-1 border-r border-black text-center font-mono">{width}</td>
@@ -214,22 +178,9 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
                             <td className="py-1 px-1.5 text-right font-mono font-bold">{formatINR(subtotal).replace('₹', '')}</td>
                           </tr>
                         );
-                      })}
-                    </React.Fragment>
-                  ))}
-
-                  {/* SPACE SUBTOTAL ROW (HIGHLIGHTED, BOLD & BIG) */}
-                  <tr className="bg-[#E6F7F7] text-slate-900 font-black text-xs border-y-2 border-black">
-                    <td colSpan={8} className="py-2 px-3 text-right uppercase tracking-wider font-black text-xs text-slate-900">
-                      {spaceGroup.spaceName.toUpperCase()} TOTAL SUBTOTAL:
-                    </td>
-                    <td className="py-2 px-2 text-right font-mono font-black text-sm text-[#008080]">
-                      {formatINR(spaceSubtotal).replace('₹', '')}
-                    </td>
-                  </tr>
+                    })}
                 </React.Fragment>
-              );
-            })
+            ))
           ) : (
             <tr>
               <td colSpan={9} className="py-4 text-center text-slate-500 italic">No items added to quotation</td>

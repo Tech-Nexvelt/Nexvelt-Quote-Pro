@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatINR } from '@/utils/currency';
+import { groupItemsBySpaceAndType, resolveItemSpecification } from '@/utils/quotationGrouping';
 import { SpaceSelectionModal } from './SpaceSelectionModal';
 import {
   Edit2,
@@ -156,13 +157,9 @@ export const QuotationTable: React.FC = () => {
         const spaceTotalArea = spaceItems.reduce((acc, i) => acc + i.areaSqFt, 0);
         const isCollapsed = !!space.isCollapsed;
 
-        // Group items within space by Item Type / Category
-        const itemTypeGroups: Record<string, typeof spaceItems> = {};
-        spaceItems.forEach((i) => {
-          const type = i.category || 'General Work';
-          if (!itemTypeGroups[type]) itemTypeGroups[type] = [];
-          itemTypeGroups[type].push(i);
-        });
+        // Shared Space → Item Type grouping (same utility as the printable invoice)
+        const itemTypeGroups =
+          groupItemsBySpaceAndType(spaceItems, [space])[0]?.itemTypeGroups ?? [];
 
         return (
           <Card key={space.id} glass className="p-0 overflow-hidden border-slate-200 dark:border-slate-800 shadow-md">
@@ -242,7 +239,7 @@ export const QuotationTable: React.FC = () => {
                     No items in {space.spaceName} yet. Click <strong>+ Item</strong> above to add wardrobes, cabinets, or wall paneling.
                   </div>
                 ) : (
-                  Object.entries(itemTypeGroups).map(([itemType, groupItems]) => (
+                  itemTypeGroups.map(({ itemType, items: groupItems }) => (
                     <div key={itemType} className="p-0">
                       {/* Item Type Sub-header */}
                       <div className="px-4 py-2 bg-slate-50/70 dark:bg-slate-900/40 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -291,9 +288,9 @@ export const QuotationTable: React.FC = () => {
                                       <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                                         {item.name}
                                       </span>
-                                      {item.specification && (
+                                      {resolveItemSpecification(item) && (
                                         <span className="text-[11px] text-[#00B8B8] dark:text-[#35F5FF] font-medium italic">
-                                          {item.specification}
+                                          {resolveItemSpecification(item)}
                                         </span>
                                       )}
                                       <div className="text-[11px] text-slate-500 space-x-2">

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AdditionalCharges, DiscountConfig, Quotation, QuotationItem, QuotationStatus, TaxConfig } from '@/types/quotation';
-import { QuotationSpace, DEFAULT_GENERAL_SPACE } from '@/types/spaces';
+import { QuotationSpace, DEFAULT_GENERAL_SPACE, SPACE_TYPES } from '@/types/spaces';
+import { resolveItemSpecification } from '@/utils/quotationGrouping';
 import { Customer } from '@/types/customer';
 import { calculateLineItem, calculateQuotationSummary } from '@/core/engines/calculationEngine';
 import { convertToFeet } from '@/core/engines/measurementEngine';
@@ -105,6 +106,19 @@ function resequenceSpaceItems(items: QuotationItem[], spaces: QuotationSpace[]):
   });
 
   return { items: updatedItems, spaces: updatedSpaces };
+}
+
+/**
+ * calculateLineItem recomputes money fields only and does not carry placement
+ * fields, so re-attach them to keep the room assignment through add/update/duplicate.
+ */
+function withPlacement(line: QuotationItem, source: Partial<QuotationItem>): QuotationItem {
+  return {
+    ...line,
+    spaceId: source.spaceId,
+    spaceName: source.spaceName,
+    itemOrder: source.itemOrder,
+  };
 }
 
 interface QuotationState {
@@ -301,14 +315,15 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
         };
 
         const spaceItems = state.currentQuotation.items.filter((i) => i.spaceId === id);
-        const duplicatedItems = spaceItems.map((item) =>
-          calculateLineItem({
+        const duplicatedItems = spaceItems.map((item) => {
+          const placed = {
             ...item,
             id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
             spaceId: newSpaceId,
             spaceName: duplicatedSpace.spaceName,
-          })
-        );
+          };
+          return withPlacement(calculateLineItem(placed), placed);
+        });
 
         const updatedSpaces = [...(state.currentQuotation.spaces || []), duplicatedSpace];
         const updatedItems = [...state.currentQuotation.items, ...duplicatedItems];
@@ -344,37 +359,111 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
       }),
 
     // Line Item Actions
+    //
+    // IMPORTANT — NexveltQuoteProBuilder (CommercialItem) field semantics:
+    //   item.category  = the Room / Space name (e.g. "Kitchen", "Master Bedroom")
+    //   item.itemType  = the Work Type / Item Type (e.g. "Box Work", "Partition")
+    //
+    // QuotationItem field semantics:
+    //   .category  = Work Type / Item Type  ← maps from CommercialItem.itemType
+    //   .spaceName = Room / Space name      ← maps from CommercialItem.category
+    //   .spaceId   = Space id               ← looked up or derived from spaceName
+    //
     setQuotationItems: (items: any[]) =>
       set((state) => {
-        const mappedItems = items.map((i) => ({
-          id: i.id || `item-${Date.now()}`,
-          spaceId: i.spaceId,
-          spaceName: i.spaceName,
-          name: i.title || i.name || 'Custom Module',
-          title: i.title || i.name || 'Custom Module',
-          category: i.itemType || i.category || 'Custom Work',
-          pricingMethod: i.pricingMethod || 'per_sqft',
-          unit: i.unit || 'mm',
-          width: i.width || 0,
-          height: i.height || 0,
-          depth: i.depth || 0,
-          widthFt: convertToFeet(i.width, i.unit || 'mm'),
-          heightFt: convertToFeet(i.height, i.unit || 'mm'),
-          depthIn: convertToFeet(i.depth, i.unit || 'mm') * 12,
-          areaSqFt: i.areaSqFt || 0,
-          baseRate: i.rate || 0,
-          rate: i.rate || 0,
-          quantity: i.qty || 1,
-          qty: i.qty || 1,
-          amount: i.amount || 0,
-          lineSubtotal: i.amount || 0,
-          finish: i.finish || '',
-          material: i.material || '',
-          // Map subtitle (NexveltQuoteProBuilder's spec field) to specification
-          specification: i.specification || i.subtitle || undefined,
-        }));
+        const existingSpaces = state.currentQuotation.spaces || [];
+        const newSpaces: QuotationSpace[] = [];
+
+        // Lookup by normalized room name across existing and newly created spaces.
+        const findSpace = (name: string) =>
+          [...existingSpaces, ...newSpaces].find(
+            (s) => s.spaceName.toLowerCase() === name.toLowerCase()
+          );
+
+        const mappedItems = items.map((i) => {
+          // ── Resolve Item Type (category in QuotationItem) ──────────────────
+          // CommercialItem.itemType is the canonical source.
+          // Fall back to 'Uncategorized' — never default to 'Box Work'.
+          const resolvedItemType: string =
+            (typeof i.itemType === 'string' && i.itemType.trim())
+              ? i.itemType.trim()
+              : (typeof i.category === 'string' && i.category.trim())
+              ? i.category.trim()
+              : 'Uncategorized';
+
+          // ── Resolve Space ───────────────────────────────────────────────────
+          // If the item already has a spaceId (from ProductLineForm / GuidedBuilder),
+          // preserve it as-is.
+          // If not (from NexveltQuoteProBuilder), derive from CommercialItem.category
+          // which holds the room name.
+          let resolvedSpaceId: string | undefined = i.spaceId;
+          let resolvedSpaceName: string | undefined = i.spaceName;
+
+          if (!resolvedSpaceId) {
+            // CommercialItem.category = room name (e.g. "Kitchen", "Master Bedroom")
+            const roomName = typeof i.category === 'string' && i.category.trim()
+              ? i.category.trim()
+              : undefined;
+
+            if (roomName) {
+              let space = findSpace(roomName);
+              if (!space) {
+                // Room entered in the builder has no Space yet: create one so the
+                // room name survives resequencing instead of collapsing to General.
+                const matchedType = SPACE_TYPES.find(
+                  (t) => t.toLowerCase() === roomName.toLowerCase()
+                );
+                space = {
+                  id: `space_${roomName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+                  spaceType: matchedType || 'Others',
+                  spaceName: roomName,
+                  displayOrder: existingSpaces.length + newSpaces.length + 1,
+                };
+                newSpaces.push(space);
+              }
+              resolvedSpaceId = space.id;
+              resolvedSpaceName = space.spaceName;
+            }
+          }
+
+          return {
+            id: i.id || `item-${Date.now()}`,
+            spaceId: resolvedSpaceId,
+            spaceName: resolvedSpaceName,
+            name: i.title || i.name || 'Custom Module',
+            title: i.title || i.name || 'Custom Module',
+            // category in QuotationItem = Item Type (work type), not room
+            category: resolvedItemType,
+            pricingMethod: i.pricingMethod || 'per_sqft',
+            unit: i.unit || 'mm',
+            width: i.width || 0,
+            height: i.height || 0,
+            depth: i.depth || 0,
+            widthFt: convertToFeet(i.width, i.unit || 'mm'),
+            heightFt: convertToFeet(i.height, i.unit || 'mm'),
+            depthIn: convertToFeet(i.depth, i.unit || 'mm') * 12,
+            areaSqFt: i.areaSqFt || 0,
+            baseRate: i.rate || 0,
+            rate: i.rate || 0,
+            quantity: i.qty || 1,
+            qty: i.qty || 1,
+            amount: i.amount || 0,
+            lineSubtotal: i.amount || 0,
+            finish: i.finish || '',
+            material: i.material || '',
+            // Specification entered in the builder (subtitle); falls back to the
+            // item's own material/finish when it is blank or a generated placeholder.
+            specification: resolveItemSpecification({
+              specification: i.specification,
+              subtitle: i.subtitle,
+              material: i.material,
+              finish: i.finish,
+            }) || undefined,
+          };
+        });
         const updated = recalculateCurrent({
           ...state.currentQuotation,
+          spaces: [...existingSpaces, ...newSpaces],
           items: mappedItems as any,
         });
         return { currentQuotation: updated };
@@ -382,7 +471,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
 
     addItem: (item) =>
       set((state) => {
-        const newLine = calculateLineItem(item);
+        const newLine = withPlacement(calculateLineItem(item), item);
         const updatedItems = [newLine, ...state.currentQuotation.items];
         const updated = recalculateCurrent({
           ...state.currentQuotation,
@@ -394,7 +483,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
     updateItem: (id, item) =>
       set((state) => {
         const updatedItems = state.currentQuotation.items.map((i) =>
-          i.id === id ? calculateLineItem({ ...i, ...item }) : i
+          i.id === id ? withPlacement(calculateLineItem({ ...i, ...item }), { ...i, ...item }) : i
         );
         const updated = recalculateCurrent({
           ...state.currentQuotation,
@@ -417,11 +506,14 @@ export const useQuotationStore = create<QuotationState>((set, get) => {
       set((state) => {
         const target = state.currentQuotation.items.find((i) => i.id === id);
         if (!target) return state;
-        const duplicated = calculateLineItem({
-          ...target,
-          id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          name: `${target.name} (Copy)`,
-        });
+        const duplicated = withPlacement(
+          calculateLineItem({
+            ...target,
+            id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            name: `${target.name} (Copy)`,
+          }),
+          target
+        );
         const updatedItems = [duplicated, ...state.currentQuotation.items];
         const updated = recalculateCurrent({
           ...state.currentQuotation,

@@ -20,6 +20,8 @@ import {
   calculateLineItemAmount,
   PricingMethod,
 } from '@/core/engines/pricingEngine';
+import { resolveBuilderInit } from '@/utils/builderHydration';
+import type { Quotation } from '@/types/quotation';
 import { calculateCommercialSummary } from '@/core/engines/summaryEngine';
 import { TemplateLibraryModal } from './TemplateLibraryModal';
 import { RevisionManagerModal } from './RevisionManagerModal';
@@ -191,36 +193,49 @@ const getCategoryIcon = (categoryName?: string) => {
   return <Folder className="w-4 h-4 text-[#008080]" />;
 };
 
-const loadSavedBuilderDraft = () => {
+const loadSavedBuilderDraft = (quotation: Quotation) => {
+  const defaults = {
+    discountPercent: 0,
+    discountType: '%' as const,
+    paymentTerms: '50% Advance, 50% After Completion',
+    termsAndConditions: '1. 50% Advance on order confirmation.\n2. Balance 50% before dispatch.\n3. Work completion subject to site readiness.',
+    items: [] as CommercialItem[],
+  };
   try {
     const raw = localStorage.getItem(BUILDER_DRAFT_STORAGE_KEY) || sessionStorage.getItem(BUILDER_DRAFT_STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
       if (data && typeof data === 'object') {
-        const sanitizedItems = (Array.isArray(data.items) ? data.items : []).map((i: any) => ({
-          ...i,
-          category: i.category || 'Kitchen',
-          itemType: i.itemType || i.category || 'Box Work',
-        }));
-        return {
-          discountPercent: typeof data.discountPercent === 'number' ? data.discountPercent : 0,
-          discountType: data.discountType === 'flat' ? ('flat' as const) : ('%' as const),
-          paymentTerms: data.paymentTerms || '50% Advance, 50% After Completion',
-          termsAndConditions: data.termsAndConditions || '1. 50% Advance on order confirmation.\n2. Balance 50% before dispatch.\n3. Work completion subject to site readiness.',
-          items: sanitizedItems,
-        };
+        const init = resolveBuilderInit(
+          {
+            ...data,
+            items: (Array.isArray(data.items) ? data.items : []).map((i: any) => ({
+              ...i,
+              category: i.category || 'Kitchen',
+              // Preserve itemType as-is; fall back to the stored category name, then
+              // empty string — never silently reclassify a legacy item as 'Box Work'.
+              itemType: i.itemType || i.category || '',
+            })),
+          },
+          quotation
+        );
+        if (init.source === 'draft') {
+          return {
+            discountPercent: typeof data.discountPercent === 'number' ? data.discountPercent : 0,
+            discountType: data.discountType === 'flat' ? ('flat' as const) : ('%' as const),
+            paymentTerms: data.paymentTerms || defaults.paymentTerms,
+            termsAndConditions: data.termsAndConditions || defaults.termsAndConditions,
+            items: init.items,
+          };
+        }
+        return { ...defaults, termsAndConditions: quotation.termsAndConditions || defaults.termsAndConditions, items: init.items };
       }
     }
   } catch (err) {
     console.error('Failed to parse cached quotation draft:', err);
   }
-  return {
-    discountPercent: 0,
-    discountType: '%' as const,
-    paymentTerms: '50% Advance, 50% After Completion',
-    termsAndConditions: '1. 50% Advance on order confirmation.\n2. Balance 50% before dispatch.\n3. Work completion subject to site readiness.',
-    items: [],
-  };
+  const fallback = resolveBuilderInit(null, quotation);
+  return { ...defaults, termsAndConditions: quotation.termsAndConditions || defaults.termsAndConditions, items: fallback.items };
 };
 
 export const NexveltQuoteProBuilder: React.FC = () => {
@@ -237,7 +252,7 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     updateQuoteCustomer({ [field]: val });
   };
 
-  const initialDraft = useMemo(() => loadSavedBuilderDraft(), []);
+  const initialDraft = useMemo(() => loadSavedBuilderDraft(useQuotationStore.getState().currentQuotation), []);
 
   const [discountPercent, setDiscountPercent] = useState<number>(initialDraft.discountPercent);
   const [discountType, setDiscountType] = useState<'%' | 'flat'>(initialDraft.discountType);
@@ -275,6 +290,7 @@ export const NexveltQuoteProBuilder: React.FC = () => {
       setQuotationItems(items);
       updateTermsAndConditions(termsAndConditions);
       const payload = {
+        quotationId: useQuotationStore.getState().currentQuotation.id,
         discountPercent,
         discountType,
         paymentTerms,
@@ -289,6 +305,24 @@ export const NexveltQuoteProBuilder: React.FC = () => {
       console.error('Failed to save quotation draft to storage:', err);
     }
   }, [discountPercent, discountType, paymentTerms, termsAndConditions, items, setQuotationItems, updateTermsAndConditions]);
+
+  // A different quotation was loaded into the store while the builder is mounted
+  // (e.g. opened from Recent Quotes): show that quotation, not the previous items.
+  const activeQuotationId = currentQuotation.id;
+  const lastQuotationId = useRef(activeQuotationId);
+  useEffect(() => {
+    if (lastQuotationId.current === activeQuotationId) return;
+    lastQuotationId.current = activeQuotationId;
+    const q = useQuotationStore.getState().currentQuotation;
+    let draft: any = null;
+    try {
+      draft = JSON.parse(localStorage.getItem(BUILDER_DRAFT_STORAGE_KEY) || 'null');
+    } catch {
+      draft = null;
+    }
+    setItems(resolveBuilderInit(draft, q).items);
+    setTermsAndConditions(q.termsAndConditions || initialDraft.termsAndConditions);
+  }, [activeQuotationId, initialDraft.termsAndConditions]);
 
   // Handle external clear event
   useEffect(() => {
@@ -309,7 +343,7 @@ export const NexveltQuoteProBuilder: React.FC = () => {
 
   // Helper to calculate area & line item amount
   const calculateItemAreaAndAmount = (item: CommercialItem): CommercialItem => {
-    const itemTypeSafe = item.itemType || item.category || 'Box Work';
+    const itemTypeSafe = item.itemType || item.category || 'Uncategorized';
     if (isNonDimensionalType(itemTypeSafe)) {
       const amount = (item.rate || 0) * (item.qty || 1);
       return {
