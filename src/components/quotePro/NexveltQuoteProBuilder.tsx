@@ -324,6 +324,19 @@ export const NexveltQuoteProBuilder: React.FC = () => {
     setTermsAndConditions(q.termsAndConditions || initialDraft.termsAndConditions);
   }, [activeQuotationId, initialDraft.termsAndConditions]);
 
+  // The Quote Pro builder has no inputs for additional charges. Quotations created
+  // before the defaults were zeroed carry a hidden 3,000 + 1,500 (exactly the old
+  // defaults) that inflated the grand total; clear only that exact legacy pair.
+  useEffect(() => {
+    const c = useQuotationStore.getState().currentQuotation.additionalCharges;
+    const onlyLegacyDefaults =
+      c.installation === 3000 && c.transportation === 1500 &&
+      !c.loading && !c.labour && !c.accessories && !c.hardware && !c.packaging && !c.otherCharges;
+    if (onlyLegacyDefaults) {
+      useQuotationStore.getState().updateAdditionalCharges({ installation: 0, transportation: 0 });
+    }
+  }, [activeQuotationId]);
+
   // Handle external clear event
   useEffect(() => {
     const handleClearEvent = () => {

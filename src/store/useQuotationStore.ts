@@ -11,8 +11,8 @@ const ACTIVE_DRAFT_KEY = 'ice_active_quotation_draft';
 const SAVED_QUOTES_KEY = 'ice_saved_quotations';
 
 const DEFAULT_ADDITIONAL_CHARGES: AdditionalCharges = {
-  installation: 3000,
-  transportation: 1500,
+  installation: 0,
+  transportation: 0,
   loading: 0,
   labour: 0,
   accessories: 0,

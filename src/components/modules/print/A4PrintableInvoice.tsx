@@ -187,6 +187,21 @@ export const A4PrintableInvoice = forwardRef<HTMLDivElement>((_, ref) => {
             </tr>
           )}
 
+          {/* ADJUSTMENT ROWS: only when present, so the grand total always reconciles with the items above */}
+          {[
+            { label: 'ITEMS SUBTOTAL', value: activeSummary?.itemsSubtotal || 0, show: (activeSummary?.additionalChargesTotal || 0) > 0 || (activeSummary?.discountAmount || 0) > 0 || (activeSummary?.taxAmount || 0) > 0, sign: '' },
+            { label: 'ADDITIONAL CHARGES', value: activeSummary?.additionalChargesTotal || 0, show: (activeSummary?.additionalChargesTotal || 0) > 0, sign: '' },
+            { label: 'DISCOUNT', value: activeSummary?.discountAmount || 0, show: (activeSummary?.discountAmount || 0) > 0, sign: '- ' },
+            { label: 'TAX', value: activeSummary?.taxAmount || 0, show: (activeSummary?.taxAmount || 0) > 0, sign: '' },
+          ]
+            .filter((r) => r.show)
+            .map((r) => (
+              <tr key={r.label} className="border-t border-black text-xs font-bold">
+                <td colSpan={8} className="py-1 px-3 text-right uppercase tracking-wider">{r.label}:</td>
+                <td className="py-1 px-3 text-right font-mono">{r.sign}{formatINR(r.value).replace('₹', '')}</td>
+              </tr>
+            ))}
+
           {/* GRAND TOTAL ROW (HIGH CONTRAST, BOLD & BIG) */}
           <tr className="bg-slate-900 text-white font-black border-t-4 border-black">
             <td colSpan={8} className="py-2.5 px-3 text-left uppercase tracking-widest font-black text-sm text-cyan-300">
